@@ -1,8 +1,6 @@
 #SET THE LIBRARY PATH FOR KAMIAK
 .libPaths(c("/data/kamiak/nick.maggio/local/R_Libs","/opt/apps/r/3.2.2/lib64/R/library"))
 
-
-
 ## SET THE WORKING DIRECTORY TO THE LOCATION WHERE YOU UNZIPPED THIS SOURCE CODE
 setwd("/data/kamiak/nick.maggio/JadeDAlpoim/cleanUpPost/R")
 
