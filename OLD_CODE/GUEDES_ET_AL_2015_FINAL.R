@@ -28,6 +28,14 @@ rasterOptions(chunksize=2e+08,maxmemory=2e+09)
 # Load all functions
 all.functions <- lapply(list.files("./src",full.names=T),source)
 
+
+
+
+
+
+
+
+
 # Read in data on different crop GDD needs
 crop_GDD <- read.csv("../DATA/crop_GDD_needs.csv")
 
