@@ -31,20 +31,21 @@ prepare_ghcn <- function(region, label, calibration.years, google_maps_elevation
   # Remove empty records
   GHCN.data <- GHCN.data[!(GHCN.data %>% sapply(length) < 2)]
   
-  # Get run length encoding of missing data
-  all.rles <- do.call(c,lapply(GHCN.data,function(test){
-    tryCatch(getMissingRLE(test),error=function(e) NULL)
-  }))
-  
-  # Calculate the cutoff length of data gaps.
-  # Years with gaps longer than "cutoff" will be dropped
-  cutoff <- calcGapCutoff(rleVector=all.rles, 
-                          pLevel=0.95)
-  
   ## Clean the GHCN data
-  if(force.redo | !file.exists("./OUTPUT/GHCN.data.clean.Rds")){
+  if(force.redo | !file.exists("./OUTPUT/ghcn_data_clean.Rds")){
+    
+    # Get run length encoding of missing data
+    all.rles <- do.call(c,lapply(GHCN.data,function(test){
+      tryCatch(getMissingRLE(test),error=function(e) NULL)
+    }))
+    
+    # Calculate the cutoff length of data gaps.
+    # Years with gaps longer than "cutoff" will be dropped
+    cutoff <- calcGapCutoff(rleVector=all.rles, 
+                            pLevel=0.95)
+    
     GHCN.data.clean <- lapply(GHCN.data,function(station.data){
-      cat(station.data$TMAX$STATION[[1]],"\n")
+      # cat(station.data$TMAX$STATION[[1]],"\n")
       test <- ghcnCleaner(data.list = station.data, 
                           min.years = 10, 
                           year.range = calibration.years, 
@@ -52,9 +53,9 @@ prepare_ghcn <- function(region, label, calibration.years, google_maps_elevation
     })
     names(GHCN.data.clean) <- names(GHCN.data)
     GHCN.data.clean <- GHCN.data.clean[!sapply(GHCN.data.clean, is.null)]
-    saveRDS(GHCN.data.clean,"./OUTPUT/GHCN.data.clean.Rds")
+    saveRDS(GHCN.data.clean,"./OUTPUT/ghcn_data_clean.Rds")
   }
-  GHCN.data.clean <- readRDS("./OUTPUT/GHCN.data.clean.Rds")
+  GHCN.data.clean <- readRDS("./OUTPUT/ghcn_data_clean.Rds")
   
   
   # Keep only the clean stations
@@ -63,7 +64,7 @@ prepare_ghcn <- function(region, label, calibration.years, google_maps_elevation
     GHCN.stations <- GHCN.stations[GHCN.stations$ID %in% names(GHCN.data.clean),]
     
     # Get the station elevations using google maps API
-    GHCN.stations$elevation <- rgbif::elevation(latitude = GHCN.stations@coords[,"coords.x2"], longitude = GHCN.stations@coords[,"coords.x1"], key = google_maps_elevation_api_key)[,"elevation"]
+    GHCN.stations$elevation <- rgbif::elevation(latitude = GHCN.stations@coords[,2], longitude = GHCN.stations@coords[,1], key = google_maps_elevation_api_key)[,"elevation"]
     
     # Get all stations averages over the calibration period
     GHCN.data.averages <- lapply(GHCN.data.clean, function(station){

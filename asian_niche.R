@@ -15,6 +15,8 @@ pkg_test("rgdal")
 pkg_test("ncdf4")
 pkg_test("geomapdata")
 pkg_test("raster")
+pkg_test("readr")
+pkg_test("readxl")
 pkg_test("magrittr")
 pkg_test("plyr")
 pkg_test("dplyr")
@@ -73,10 +75,10 @@ ASIA_rast_etopo5 <- ETOPO5 %>%
   raster::mask(sp::spTransform(rgdal::readOGR("./OUTPUT/DATA/NaturalEarth/ne_10m_land/","ne_10m_land"),CRSobj = raster::projection(.))) %>%
   raster::mask(sp::spTransform(rgdal::readOGR("./OUTPUT/DATA/NaturalEarth/ne_10m_lakes/","ne_10m_lakes"),CRSobj = raster::projection(.)), inverse = TRUE) %T>%
   writeRaster(filename = "./OUTPUT/ASIA_rast_etopo5.tif",
-            datatype="INT2S",
-            options=c("COMPRESS=DEFLATE", "ZLEVEL=9", "INTERLEAVE=BAND", "PHOTOMETRIC=MINISWHITE"),
-            overwrite=T,
-            setStatistics=FALSE)
+              datatype="INT2S",
+              options=c("COMPRESS=DEFLATE", "ZLEVEL=9", "INTERLEAVE=BAND", "PHOTOMETRIC=MINISWHITE"),
+              overwrite=T,
+              setStatistics=FALSE)
 
 ##### PREPARE THE GHCN DATA #####
 ## Downloads and cleans daily climate records from the Global Historical Climate Database.
@@ -87,7 +89,87 @@ GHCN.data.final <- prepare_ghcn(region = ASIA_poly,
                                 google_maps_elevation_api_key = "AIzaSyDi4YVDZPt6uH1C1vF8YRpbp1mxqsWbi5M",
                                 force.redo = FALSE)
 
+## An example of plotting the GHCN data
+# climate_plotter(data = GHCN.data.final, station = "RSM00031474", element = "TMIN")
+
 ##### END PREPARE THE GHCN DATA #####
+
+##### PREPARE THE MARCOTT DATA #####
+# Run the script that transforms the Marcott et al. 2013 data into standard scores.
+marcott2013 <- prepare_marcott(calibration.years = calibration.years)
+
+##### END PREPARE THE MARCOTT DATA #####
+
+##### MODULATING CLIMATOLOGY BY MARCOTT SD #####
+#### Calculating growing degree days ####
+
+# How often to sample GDD, in z-space
+# Here, we sample from -16 to 10 SD, at 0.1 SD interval
+sample.points <- seq(-16,10,0.1)
+
+# A function of correct the indication predictions and estimate a smooth
+# monotonic function
+# This first uses isotonic regression, then loess smoothing with a degree of 1
+smooth.preds <- function(y){
+  y[y<0] <- 0
+  y[y>1] <- 1
+  y <- loess(isoreg(y~sample.points)$yf~sample.points, span=0.05, degree=1)
+  return(y)
+}
 
 # Read in data on different crop GDD needs
 crop_GDD <- read.csv("./DATA/crop_GDD_needs.csv")
+
+# Transform GHCN data to GDDs of each base, and modulate to Marcott
+GDDs <- sort(unique(crop_GDD$base_t))
+GHCN.GDD.incremented.sd <- lapply(GDDs,function(base){
+  out <- lapply(sample.points,function(change){
+    GHCN.GDDs <- lapply(GHCN.data.final$climatology,function(station){
+      return(sdModulator(data.df=station,
+                         temp.change.sd=change,
+                         t.base=base))
+    })
+    return(GHCN.GDDs)
+  })
+  return(out)
+})
+names(GHCN.GDD.incremented.sd) <- GDDs
+
+#### Interpolating crop niche extent ####
+# THIS SECTION WAS RUN, CACHED, THEN COMMENTED OUT FOR SPEED.
+# UNCOMMENT TO RUN AGAIN.
+# Calculate gdd kriging models for each crop
+gdd.models <- lapply(
+  1:nrow(crop_GDD),
+  FUN=function(crop){
+    crop <- crop_GDD[crop,,drop=F]
+    # Threshold for indicator kriging
+    GHCN.thresh <- lapply(
+      GHCN.GDD.incremented.sd[[as.character(crop[['base_t']])]],
+      function(year){
+        lapply(
+          year,
+          function(value){
+            value>=as.numeric(crop[['min_gdd']])
+          })
+      })
+    
+    # Calculate kriges
+    fits <- lapply(
+      GHCN.thresh,
+      function(GHCN.annual.GDDs){
+          mKrig(x=coordinates(GHCN.stations),
+                y=unlist(GHCN.annual.GDDs),
+                Z=GHCN.stations$elevation,
+                Covariance="Exponential",
+                Distance="rdist.earth")
+      })
+    
+    return(fits)
+  })
+names(gdd.models) <- crop_GDD$crop
+saveRDS(gdd.models,"../OUTPUT/GDD_models_KRIGING.Rds",compress="xz")
+gdd.models <- readRDS("../OUTPUT/GDD_models_KRIGING.Rds")
+
+
+
