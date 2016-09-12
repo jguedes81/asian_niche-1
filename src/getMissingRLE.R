@@ -2,8 +2,8 @@
 ## Useful for deciding the cutoff value for the number of contiguous days.
 getMissingRLE <- function(vect){
   ## Read in both records
-  vect.tmin <- vect[['tmin']]
-  vect.tmax <- vect[['tmax']]
+  vect.tmin <- vect[['TMIN']]
+  vect.tmax <- vect[['TMAX']]
   
   ## Make sure they are both the same dimensions
   if(!equals(dim(vect.tmin),dim(vect.tmax))){

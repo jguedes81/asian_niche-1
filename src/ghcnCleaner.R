@@ -24,7 +24,7 @@ ghcnCleaner <- function(data.list, year.range, na.cutoff, min.years=length(year.
       }
       
       # Get just the climate info
-      annual.records <- as.matrix(annual.data[,3:33])
+      annual.records <- as.matrix(annual.data[,4:34])
       
       # Get the number of days per month in the records
       n.days <- monthDays(as.Date(paste(annual.data$YEAR,annual.data$MONTH,'01',sep='-')))
@@ -46,7 +46,7 @@ ghcnCleaner <- function(data.list, year.range, na.cutoff, min.years=length(year.
     
     complete.records.list <- complete.records.list[!sapply(complete.records.list, is.null)]
     
-    if(is.empty(complete.records.list) || length(complete.records.list)<min.years){
+    if(length(complete.records.list) == 0 || length(complete.records.list)<min.years){
       return(NULL)
     }
     
@@ -64,7 +64,7 @@ ghcnCleaner <- function(data.list, year.range, na.cutoff, min.years=length(year.
     # (3) linearly interpolate across gaps <= the cutoff length
     interp.records.df.split <- lapply(complete.records.df.split,function(data.split){
       # Get matrix of only data
-      data.matrix <- as.matrix(data.split[,3:33])
+      data.matrix <- as.matrix(data.split[,4:34])
       
       # Get the number of days per month in the records
       n.days <- monthDays(as.Date(paste(data.split$YEAR,data.split$MONTH,'01',sep='-')))
@@ -90,6 +90,7 @@ ghcnCleaner <- function(data.list, year.range, na.cutoff, min.years=length(year.
     interp.records.final.years <- split(interp.records.final,interp.records.final$YEAR)
     # stack in 3D array
     interp.records.final.years.stack <- do.call(abind,c(interp.records.final.years,list(along=0))) # Gives 2 x 4 x 5
+    class(interp.records.final.years.stack) <- "integer"
     # Calculate the mean of all years
     interp.records.final.years.stack.mean <- apply(interp.records.final.years.stack,c(2,3),function(X){mean(X,na.rm=T)})
     # Replace NA values with the mean of all years
@@ -121,7 +122,7 @@ ghcnCleaner <- function(data.list, year.range, na.cutoff, min.years=length(year.
   })
   
   ## Finally, (4) remove stations with less than 10 years of complete data (like WorldClim)
-  if(nrow(data.list[[1]]) < (min.years*12)){
+  if(is.null(data.list[[1]]) | nrow(data.list[[1]]) < (min.years*12)){
     return(NULL)
   }else{
     return(data.list)
