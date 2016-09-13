@@ -14,13 +14,15 @@ pkg_test("rgbif")
 pkg_test("rgdal")
 pkg_test("ncdf4")
 pkg_test("geomapdata")
+pkg_test("geosphere")
+pkg_test("matrixStats")
 pkg_test("raster")
 pkg_test("readr")
 pkg_test("readxl")
 pkg_test("magrittr")
 pkg_test("plyr")
 pkg_test("dplyr")
-
+pkg_test("e1071")
 
 # Force Raster to load large rasters into memory
 rasterOptions(chunksize=2e+08,maxmemory=2e+09)
@@ -34,6 +36,9 @@ ASIA_poly <- polygon_from_extent(extent(30,150,5,60),"+proj=longlat +ellps=GRS80
 
 # Set the calibration period for paleoclimate reconstructions
 calibration.years <- 1961:1990
+
+# Redo all calculations?
+force.redo = FALSE
 
 ##### BASIC DATA #####
 ## The basic data for this analysis includes a 1 arc-min elevation model (ETOPO1)
@@ -87,10 +92,10 @@ GHCN.data.final <- prepare_ghcn(region = ASIA_poly,
                                 label = "ASIA_poly", 
                                 calibration.years = calibration.years, 
                                 google_maps_elevation_api_key = "AIzaSyDi4YVDZPt6uH1C1vF8YRpbp1mxqsWbi5M",
-                                force.redo = FALSE)
+                                force.redo = force.redo)
 
 ## An example of plotting the GHCN data
-# climate_plotter(data = GHCN.data.final, station = "RSM00031474", element = "TMIN")
+# climate_plotter(data = GHCN.data.final, station = "CHM00051334", element = "TMIN")
 
 ##### END PREPARE THE GHCN DATA #####
 
@@ -104,8 +109,8 @@ marcott2013 <- prepare_marcott(calibration.years = calibration.years)
 #### Calculating growing degree days ####
 
 # How often to sample GDD, in z-space
-# Here, we sample from -16 to 10 SD, at 0.1 SD interval
-sample.points <- seq(-16,10,0.1)
+# Here, we sample from -20 to 20 SD, at 1 SD interval
+sample.points <- -20:20
 
 # A function of correct the indication predictions and estimate a smooth
 # monotonic function
@@ -127,49 +132,87 @@ GHCN.GDD.incremented.sd <- lapply(GDDs,function(base){
     GHCN.GDDs <- lapply(GHCN.data.final$climatology,function(station){
       return(sdModulator(data.df=station,
                          temp.change.sd=change,
-                         t.base=base))
+                         t.base=base,
+                         t.cap=30))
     })
-    return(GHCN.GDDs)
+    return(data_frame(SD_change = change, ID = names(GHCN.GDDs), GDD = unlist(GHCN.GDDs)))
   })
-  return(out)
+  return({
+    out %>% 
+      dplyr::bind_rows() %>%
+      dplyr::left_join(GHCN.data.final$spatial %>% as_data_frame() %>% rename(x = coords.x1, y = coords.x2), by = "ID")
+  })
 })
 names(GHCN.GDD.incremented.sd) <- GDDs
 
-#### Interpolating crop niche extent ####
-# THIS SECTION WAS RUN, CACHED, THEN COMMENTED OUT FOR SPEED.
-# UNCOMMENT TO RUN AGAIN.
-# Calculate gdd kriging models for each crop
-gdd.models <- lapply(
-  1:nrow(crop_GDD),
-  FUN=function(crop){
-    crop <- crop_GDD[crop,,drop=F]
-    # Threshold for indicator kriging
-    GHCN.thresh <- lapply(
-      GHCN.GDD.incremented.sd[[as.character(crop[['base_t']])]],
-      function(year){
-        lapply(
-          year,
-          function(value){
-            value>=as.numeric(crop[['min_gdd']])
-          })
-      })
-    
-    # Calculate kriges
-    fits <- lapply(
-      GHCN.thresh,
-      function(GHCN.annual.GDDs){
+##### MODEL THE NICHE PROBABILITY USING SVM #####
+# Calculate gdd svm models for each base GDD value
+
+# Get the distance matrix between stations, using the geodetic on the WGS84 ellipsoid
+GHCN.data.final.distm <- geosphere::distm(GHCN.data.final$spatial, fun = distGeo)
+GHCN.data.final.distm[GHCN.data.final.distm == 0] <- NA
+GHCN.data.final.distm.mean <- GHCN.data.final.distm %>% matrixStats::rowMins(na.rm = T) %>% mean() # mean distance to nearest neighboring station is 111 km
+
+test.model <- svm(as.factor(GDD >= 2000) ~ x + y + elevation + SD_change, data = GHCN.GDD.incremented.sd$`0`, probability = T)
+
+
+ASIA_rast_etopo5_0 <- ASIA_rast_etopo5
+test.out <- lapply(0,function(SD_change){
+  ASIA_rast_etopo5_0[!is.na(ASIA_rast_etopo5_0)] <- predict(test.model, newdata = rasterToPoints(ASIA_rast_etopo5_0) %>% 
+                                                              as_data_frame() %>% 
+                                                              rename(elevation = layer) %>%
+                                                              dplyr::mutate(SD_change = SD_change),
+                                                              probability = T
+                                                            ) %>% attr(which = "probabilities") %>% as_data_frame() %>% .[["TRUE"]]
+  return(ASIA_rast_etopo5_0)
+})
+test.out %<>% brick()
+names(test.out) <- paste0("SD: ",as.character(-20:20))
+plot(y = test.out[14400], x =-20:20)
+plot(test.out[[17]], zlim = c(0,1))
+
+GHCN.GDD.incremented.sd$`0` %>%
+  filter(ID == "TX000038750") %>%
+  plot(GDD~SD_change, data = .)
+abline(a = 4173.36467, b=1500)
+
+GHCN.GDD.incremented.sd$`0` %>%
+  filter(SD_change == 0) %>%
+  arrange(-elevation)
+
+
+if(force.redo | !file.exists("./OUTPUT/gdd_krige_models.Rds"))
+  gdd.models <- lapply(
+    1:nrow(crop_GDD),
+    FUN=function(crop){
+      crop <- crop_GDD[crop,,drop=F]
+      # Threshold for indicator kriging
+      GHCN.thresh <- lapply(
+        GHCN.GDD.incremented.sd[[as.character(crop[['base_t']])]],
+        function(year){
+          lapply(
+            year,
+            function(value){
+              value>=as.numeric(crop[['min_gdd']])
+            })
+        })
+      
+      # Calculate kriges
+      fits <- lapply(
+        GHCN.thresh,
+        function(GHCN.annual.GDDs){
           mKrig(x=coordinates(GHCN.stations),
                 y=unlist(GHCN.annual.GDDs),
                 Z=GHCN.stations$elevation,
                 Covariance="Exponential",
                 Distance="rdist.earth")
-      })
-    
-    return(fits)
-  })
+        })
+      
+      return(fits)
+    })
 names(gdd.models) <- crop_GDD$crop
-saveRDS(gdd.models,"../OUTPUT/GDD_models_KRIGING.Rds",compress="xz")
-gdd.models <- readRDS("../OUTPUT/GDD_models_KRIGING.Rds")
+saveRDS(gdd.models,"./OUTPUT/gdd_krige_models.Rds",compress="xz")
+gdd.models <- readRDS("./OUTPUT/gdd_krige_models.Rds")
 
 
 
