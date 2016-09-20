@@ -17,11 +17,9 @@ pkg_test("geomapdata")
 pkg_test("geosphere")
 pkg_test("matrixStats")
 pkg_test("raster")
-pkg_test("readr")
-pkg_test("readxl")
 pkg_test("magrittr")
 pkg_test("plyr")
-pkg_test("dplyr")
+pkg_test("hadley/tidyverse")
 pkg_test("e1071")
 
 # Force Raster to load large rasters into memory
@@ -66,6 +64,7 @@ unzip("./OUTPUT/DATA/NaturalEarth/ne_10m_lakes.zip", exdir="./OUTPUT/DATA/Natura
 #               options=c("COMPRESS=DEFLATE", "ZLEVEL=9", "INTERLEAVE=BAND", "PHOTOMETRIC=MINISWHITE"),
 #               overwrite=T,
 #               setStatistics=FALSE)
+ASIA_rast_etopo1 <- raster("./OUTPUT/ASIA_rast_etopo1.tif")
 
 # Get the ETOPO5 grid-aligned dataset.
 data("ETOPO5")
@@ -153,23 +152,39 @@ GHCN.data.final.distm <- geosphere::distm(GHCN.data.final$spatial, fun = distGeo
 GHCN.data.final.distm[GHCN.data.final.distm == 0] <- NA
 GHCN.data.final.distm.mean <- GHCN.data.final.distm %>% matrixStats::rowMins(na.rm = T) %>% mean() # mean distance to nearest neighboring station is 111 km
 
-test.model <- svm(as.factor(GDD >= 2000) ~ x + y + elevation + SD_change, data = GHCN.GDD.incremented.sd$`0`, probability = T)
+GHCN.GDD.incremented.sd_0_ecef <- wgs84_to_ecef(lon = GHCN.GDD.incremented.sd$`0`$x, 
+                                                lat = GHCN.GDD.incremented.sd$`0`$y, 
+                                                elev = GHCN.GDD.incremented.sd$`0`$elevation)
+GHCN.GDD.incremented.sd$`0` %<>%
+  dplyr::mutate(x_ecef = GHCN.GDD.incremented.sd_0_ecef$'x',
+                y_ecef = GHCN.GDD.incremented.sd_0_ecef$'y',
+                z_ecef = GHCN.GDD.incremented.sd_0_ecef$'z')
 
+dist(GHCN.GDD.incremented.sd_0_ecef %>% as_data_frame())
 
-ASIA_rast_etopo5_0 <- ASIA_rast_etopo5
-test.out <- lapply(0,function(SD_change){
-  ASIA_rast_etopo5_0[!is.na(ASIA_rast_etopo5_0)] <- predict(test.model, newdata = rasterToPoints(ASIA_rast_etopo5_0) %>% 
-                                                              as_data_frame() %>% 
-                                                              rename(elevation = layer) %>%
-                                                              dplyr::mutate(SD_change = SD_change),
-                                                              probability = T
-                                                            ) %>% attr(which = "probabilities") %>% as_data_frame() %>% .[["TRUE"]]
+test.model <- svm(as.factor(GDD >= 2000) ~ x_ecef + y_ecef + z_ecef + elevation + SD_change, data = GHCN.GDD.incremented.sd$`0`, probability = T)
+
+ASIA_rast_etopo5.points <- rasterToPoints(ASIA_rast_etopo5) %>% as_data_frame()
+ASIA_rast_etopo5.ecef <- wgs84_to_ecef(lon = ASIA_rast_etopo5.points$x, lat = ASIA_rast_etopo5.points$y, elev = ASIA_rast_etopo5.points$layer) %>% as_data_frame()
+
+# ASIA_rast_etopo5_0 <- ASIA_rast_etopo5
+test.out <- lapply(-20:20,function(SD_change){
+  ASIA_rast_etopo5_0[!is.na(ASIA_rast_etopo5_0)] <- predict(test.model, 
+                                                            newdata = 
+                                                              ASIA_rast_etopo5.ecef %>% 
+                                                              rename(x_ecef = x,
+                                                                     y_ecef = y,
+                                                                     z_ecef = z) %>%
+                                                              dplyr::mutate(elevation = (ASIA_rast_etopo5.points$layer),
+                                                                            SD_change = SD_change),
+                                                            probability = T
+  ) %>% attr(which = "probabilities") %>% as_data_frame() %>% .[["TRUE"]]
   return(ASIA_rast_etopo5_0)
 })
 test.out %<>% brick()
 names(test.out) <- paste0("SD: ",as.character(-20:20))
 plot(y = test.out[14400], x =-20:20)
-plot(test.out[[17]], zlim = c(0,1))
+plot(test.out[[1]], zlim = c(0,1))
 
 GHCN.GDD.incremented.sd$`0` %>%
   filter(ID == "TX000038750") %>%
@@ -215,4 +230,11 @@ saveRDS(gdd.models,"./OUTPUT/gdd_krige_models.Rds",compress="xz")
 gdd.models <- readRDS("./OUTPUT/gdd_krige_models.Rds")
 
 
+ASIA_rast_etopo5_0 <- ASIA_rast_etopo5
+test.rast <- ASIA_rast_etopo5_0 %>% raster::crop(extent(85,95,25,35))
 
+# install.packages("plotly")
+library("plotly")
+
+plot_ly(test.out, x = x, y = y, z = z, type = "scatter3d", color = test$layer)
+plot_ly(z = test.out, type = "surface")
