@@ -184,15 +184,20 @@ GHCN.GDD.incremented.sd.ecef <- lapply(GHCN.GDD.incremented.sd, function(X){
 
 ### Three examples
 registerDoParallel(4)
-svm.asia.geo <- foreach(base = GHCN.GDD.incremented.sd.ecef) %dopar%
+svm.asia.geo <- foreach(base = GHCN.GDD.incremented.sd.ecef[1]) %dopar%
   e1071::svm(as.factor(GDD >= 2000) ~ x + y + elevation + SD_change, data = base, probability = T)
 
-svm.asia.ecef <- foreach(base = GHCN.GDD.incremented.sd.ecef) %dopar%
+svm.asia.ecef <- foreach(base = GHCN.GDD.incremented.sd.ecef[1]) %dopar%
   e1071::svm(as.factor(GDD >= 2000) ~ x_ecef + y_ecef + z_ecef + SD_change, data = base, probability = T)
 
-svm.asia.ecef.elev <- foreach(base = GHCN.GDD.incremented.sd.ecef) %dopar%
+svm.asia.ecef.elev <- foreach(base = GHCN.GDD.incremented.sd.ecef[1]) %dopar%
   e1071::svm(as.factor(GDD >= 2000) ~ x_ecef + y_ecef + z_ecef + elevation + SD_change, data = base, probability = T)
 stopImplicitCluster()
+
+### Show differences
+
+
+
 
 ### Let's try tuning.
 this.tune <- tune.control(sampling = "cross",
@@ -211,27 +216,27 @@ test <- tune.svm(as.factor(GDD >= 2000) ~ x + y + elevation,
 
 
 
+
 ASIA_rast_etopo5.points <- rasterToPoints(ASIA_rast_etopo5) %>% as_data_frame()
-ASIA_rast_etopo5.ecef <- wgs84_to_ecef(lon = ASIA_rast_etopo5.points$x, lat = ASIA_rast_etopo5.points$y, elev = ASIA_rast_etopo5.points$layer) %>% as_data_frame()
+ASIA_rast_etopo5.ecef <- wgs84_to_ecef(lon = ASIA_rast_etopo5.points$x, lat = ASIA_rast_etopo5.points$y, elev = ASIA_rast_etopo5.points$ASIA_rast_etopo5) %>% as_data_frame()
 
 # ASIA_rast_etopo5_0 <- ASIA_rast_etopo5
 test.out <- lapply(-20:20,function(SD_change){
-  ASIA_rast_etopo5_0[!is.na(ASIA_rast_etopo5_0)] <- predict(test.model, 
+  ASIA_rast_etopo5_0[!is.na(ASIA_rast_etopo5_0)] <- predict(svm.asia.geo[[1]], 
                                                             newdata = 
-                                                              ASIA_rast_etopo5.ecef %>% 
-                                                              rename(x_ecef = x,
-                                                                     y_ecef = y,
-                                                                     z_ecef = z) %>%
-                                                              dplyr::mutate(elevation = (ASIA_rast_etopo5.points$layer),
-                                                                            SD_change = SD_change),
+                                                              ASIA_rast_etopo5.points %>% 
+                                                              rename(x = x,
+                                                                     y = y,
+                                                                     elevation = ASIA_rast_etopo5) %>%
+                                                              dplyr::mutate(SD_change = SD_change),
                                                             probability = T
   ) %>% attr(which = "probabilities") %>% as_data_frame() %>% .[["TRUE"]]
   return(ASIA_rast_etopo5_0)
 })
 test.out %<>% brick()
 names(test.out) <- paste0("SD: ",as.character(-20:20))
-plot(y = test.out[14400], x =-20:20)
-plot(test.out[[1]], zlim = c(0,1))
+plot(y = test.out[300000], x =-20:20, type = "l")
+plot(test.out[[17]], zlim = c(0,1))
 
 GHCN.GDD.incremented.sd$`0` %>%
   filter(ID == "TX000038750") %>%
