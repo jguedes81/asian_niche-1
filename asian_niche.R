@@ -1,9 +1,10 @@
 ## This is the code for the pan-Asian niche reconstructions
 
 # install.packages("FedData")
-devtools::install_github("bocinsky/FedData")
+# devtools::install_github("bocinsky/FedData")
 library(FedData)
 pkg_test("parallel")
+pkg_test("foreach")
 pkg_test("doParallel")
 pkg_test("R.utils")
 pkg_test("Hmisc")
@@ -14,13 +15,13 @@ pkg_test("rgbif")
 pkg_test("rgdal")
 pkg_test("ncdf4")
 pkg_test("geomapdata")
-pkg_test("geosphere")
 pkg_test("matrixStats")
 pkg_test("raster")
 pkg_test("magrittr")
 pkg_test("plyr")
 pkg_test("hadley/tidyverse")
 pkg_test("e1071")
+pkg_test("caret")
 
 # Force Raster to load large rasters into memory
 rasterOptions(chunksize=2e+08,maxmemory=2e+09)
@@ -42,47 +43,71 @@ force.redo = FALSE
 ## The basic data for this analysis includes a 1 arc-min elevation model (ETOPO1)
 ## that must be limited to landforms.
 
-# Get the Natural Earth land data
-dir.create("./OUTPUT/DATA/NaturalEarth/ne_10m_land/", showWarnings = FALSE, recursive = TRUE)
-FedData::download_data(url="http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_land.zip",destdir="./OUTPUT/DATA/NaturalEarth/")
-unzip("./OUTPUT/DATA/NaturalEarth/ne_10m_land.zip", exdir="./OUTPUT/DATA/NaturalEarth/ne_10m_land/")
 
-dir.create("./OUTPUT/DATA/NaturalEarth/", showWarnings = FALSE, recursive = TRUE)
-FedData::download_data(url="http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_lakes.zip",destdir="./OUTPUT/DATA/NaturalEarth/")
-unzip("./OUTPUT/DATA/NaturalEarth/ne_10m_lakes.zip", exdir="./OUTPUT/DATA/NaturalEarth/ne_10m_lakes/")
 
 # Get the ETOPO1 grid-aligned dataset.
-# dir.create("./OUTPUT/DATA/ETOPO1/", showWarnings = FALSE, recursive = TRUE)
-# FedData::download_data(url="http://www.ngdc.noaa.gov/mgg/global/relief/ETOPO1/data/bedrock/grid_registered/netcdf/ETOPO1_Bed_g_gdal.grd.gz",destdir="./OUTPUT/DATA/ETOPO1/")
-# R.utils::gunzip("./OUTPUT/DATA/ETOPO1/ETOPO1_Bed_g_gdal.grd.gz", destname="./OUTPUT/DATA/ETOPO1/ETOPO1_Bed_g_gdal.grd", remove = FALSE)
-# ASIA_rast_etopo1 <- raster("./OUTPUT/DATA/ETOPO1/ETOPO1_Bed_g_gdal.grd") %>%
-#   raster::crop(y = sp::spTransform(ASIA_poly, CRSobj = raster::projection(.))) %>%
-#   raster::mask(sp::spTransform(rgdal::readOGR("./OUTPUT/DATA/NaturalEarth/ne_10m_land/","ne_10m_land"),CRSobj = raster::projection(.))) %>%
-#   raster::mask(sp::spTransform(rgdal::readOGR("./OUTPUT/DATA/NaturalEarth/ne_10m_lakes/","ne_10m_lakes"),CRSobj = raster::projection(.)), inverse = TRUE) %T>%
-#   writeRaster(filename = "./OUTPUT/ASIA_rast_etopo1.tif",
-#               datatype="INT2S",
-#               options=c("COMPRESS=DEFLATE", "ZLEVEL=9", "INTERLEAVE=BAND", "PHOTOMETRIC=MINISWHITE"),
-#               overwrite=T,
-#               setStatistics=FALSE)
-ASIA_rast_etopo1 <- raster("./OUTPUT/ASIA_rast_etopo1.tif")
+dir.create("./OUTPUT/DATA/ETOPO1/", showWarnings = FALSE, recursive = TRUE)
+if(force.redo | !file.exists("./OUTPUT/ASIA_rast_etopo1.tif")){
+  # Get the Natural Earth land data
+  dir.create("./OUTPUT/DATA/NaturalEarth/ne_10m_land/", showWarnings = FALSE, recursive = TRUE)
+  FedData::download_data(url="http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_land.zip",destdir="./OUTPUT/DATA/NaturalEarth/")
+  unzip("./OUTPUT/DATA/NaturalEarth/ne_10m_land.zip", exdir="./OUTPUT/DATA/NaturalEarth/ne_10m_land/")
+  
+  dir.create("./OUTPUT/DATA/NaturalEarth/", showWarnings = FALSE, recursive = TRUE)
+  FedData::download_data(url="http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_lakes.zip",destdir="./OUTPUT/DATA/NaturalEarth/")
+  unzip("./OUTPUT/DATA/NaturalEarth/ne_10m_lakes.zip", exdir="./OUTPUT/DATA/NaturalEarth/ne_10m_lakes/")
+  
+  FedData::download_data(url="http://www.ngdc.noaa.gov/mgg/global/relief/ETOPO1/data/bedrock/grid_registered/netcdf/ETOPO1_Bed_g_gdal.grd.gz",destdir="./OUTPUT/DATA/ETOPO1/")
+  R.utils::gunzip("./OUTPUT/DATA/ETOPO1/ETOPO1_Bed_g_gdal.grd.gz", destname="./OUTPUT/DATA/ETOPO1/ETOPO1_Bed_g_gdal.grd", remove = FALSE)
+  ASIA_rast_etopo1 <- raster("./OUTPUT/DATA/ETOPO1/ETOPO1_Bed_g_gdal.grd") %>%
+    raster::crop(y = sp::spTransform(ASIA_poly, CRSobj = raster::projection(.))) %>%
+    raster::mask(sp::spTransform(rgdal::readOGR("./OUTPUT/DATA/NaturalEarth/ne_10m_land/","ne_10m_land"),CRSobj = raster::projection(.))) %>%
+    raster::mask(sp::spTransform(rgdal::readOGR("./OUTPUT/DATA/NaturalEarth/ne_10m_lakes/","ne_10m_lakes"),CRSobj = raster::projection(.)), inverse = TRUE) %T>%
+    writeRaster(filename = "./OUTPUT/ASIA_rast_etopo1.tif",
+                datatype="INT2S",
+                options=c("COMPRESS=DEFLATE", "ZLEVEL=9", "INTERLEAVE=BAND", "PHOTOMETRIC=MINISWHITE"),
+                overwrite=T,
+                setStatistics=FALSE)
+  unlink("./OUTPUT/DATA/ETOPO1/ETOPO1_Bed_g_gdal.grd")
+  unlink("./OUTPUT/DATA/NaturalEarth/ne_10m_lakes/", recursive = T, force = T)
+  unlink("./OUTPUT/DATA/NaturalEarth/ne_10m_land/", recursive = T, force = T)
+} else {
+  ASIA_rast_etopo1 <- raster("./OUTPUT/ASIA_rast_etopo1.tif")
+}
 
 # Get the ETOPO5 grid-aligned dataset.
-data("ETOPO5")
-ASIA_rast_etopo5 <- ETOPO5 %>%
-  t() %>%
-  raster(xmn = 0,
-         xmx = 360,
-         ymn = -90,
-         ymx = 90,
-         crs = CRS("+proj=longlat +ellps=clrk66 +no_defs")) %>%
-  raster::crop(y = sp::spTransform(ASIA_poly, CRSobj = raster::projection(.))) %>%
-  raster::mask(sp::spTransform(rgdal::readOGR("./OUTPUT/DATA/NaturalEarth/ne_10m_land/","ne_10m_land"),CRSobj = raster::projection(.))) %>%
-  raster::mask(sp::spTransform(rgdal::readOGR("./OUTPUT/DATA/NaturalEarth/ne_10m_lakes/","ne_10m_lakes"),CRSobj = raster::projection(.)), inverse = TRUE) %T>%
-  writeRaster(filename = "./OUTPUT/ASIA_rast_etopo5.tif",
-              datatype="INT2S",
-              options=c("COMPRESS=DEFLATE", "ZLEVEL=9", "INTERLEAVE=BAND", "PHOTOMETRIC=MINISWHITE"),
-              overwrite=T,
-              setStatistics=FALSE)
+if(force.redo | !file.exists("./OUTPUT/ASIA_rast_etopo5.tif")){
+  # Get the Natural Earth land data
+  dir.create("./OUTPUT/DATA/NaturalEarth/ne_10m_land/", showWarnings = FALSE, recursive = TRUE)
+  FedData::download_data(url="http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_land.zip",destdir="./OUTPUT/DATA/NaturalEarth/")
+  unzip("./OUTPUT/DATA/NaturalEarth/ne_10m_land.zip", exdir="./OUTPUT/DATA/NaturalEarth/ne_10m_land/")
+  
+  dir.create("./OUTPUT/DATA/NaturalEarth/", showWarnings = FALSE, recursive = TRUE)
+  FedData::download_data(url="http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_lakes.zip",destdir="./OUTPUT/DATA/NaturalEarth/")
+  unzip("./OUTPUT/DATA/NaturalEarth/ne_10m_lakes.zip", exdir="./OUTPUT/DATA/NaturalEarth/ne_10m_lakes/")
+  
+  data("ETOPO5")
+  ASIA_rast_etopo5 <- ETOPO5 %>%
+    t() %>%
+    raster(xmn = 0,
+           xmx = 360,
+           ymn = -90,
+           ymx = 90,
+           crs = CRS("+proj=longlat +ellps=clrk66 +no_defs")) %>%
+    raster::crop(y = sp::spTransform(ASIA_poly, CRSobj = raster::projection(.))) %>%
+    raster::mask(sp::spTransform(rgdal::readOGR("./OUTPUT/DATA/NaturalEarth/ne_10m_land/","ne_10m_land"),CRSobj = raster::projection(.))) %>%
+    raster::mask(sp::spTransform(rgdal::readOGR("./OUTPUT/DATA/NaturalEarth/ne_10m_lakes/","ne_10m_lakes"),CRSobj = raster::projection(.)), inverse = TRUE) %T>%
+    writeRaster(filename = "./OUTPUT/ASIA_rast_etopo5.tif",
+                datatype="INT2S",
+                options=c("COMPRESS=DEFLATE", "ZLEVEL=9", "INTERLEAVE=BAND", "PHOTOMETRIC=MINISWHITE"),
+                overwrite=T,
+                setStatistics=FALSE)
+  rm(ETOPO5)
+  unlink("./OUTPUT/DATA/NaturalEarth/ne_10m_lakes/", recursive = T, force = T)
+  unlink("./OUTPUT/DATA/NaturalEarth/ne_10m_land/", recursive = T, force = T)
+} else {
+  ASIA_rast_etopo5 <- raster("./OUTPUT/ASIA_rast_etopo5.tif")
+}
 
 ##### PREPARE THE GHCN DATA #####
 ## Downloads and cleans daily climate records from the Global Historical Climate Database.
@@ -107,8 +132,8 @@ marcott2013 <- prepare_marcott(calibration.years = calibration.years)
 ##### MODULATING CLIMATOLOGY BY MARCOTT SD #####
 #### Calculating growing degree days ####
 
-# How often to sample GDD, in z-space
-# Here, we sample from -20 to 20 SD, at 1 SD interval
+# How often to sample GDD, in z-space, for model tuning
+# Here, we sample from -20 to 20 SD, at 1 SD interval (this is probably overkill)
 sample.points <- -20:20
 
 # A function of correct the indication predictions and estimate a smooth
@@ -134,12 +159,12 @@ GHCN.GDD.incremented.sd <- lapply(GDDs,function(base){
                          t.base=base,
                          t.cap=30))
     })
-    return(data_frame(SD_change = change, ID = names(GHCN.GDDs), GDD = unlist(GHCN.GDDs)))
+    return(dplyr::data_frame(SD_change = change, ID = names(GHCN.GDDs), GDD = unlist(GHCN.GDDs)))
   })
   return({
     out %>% 
       dplyr::bind_rows() %>%
-      dplyr::left_join(GHCN.data.final$spatial %>% as_data_frame() %>% rename(x = coords.x1, y = coords.x2), by = "ID")
+      dplyr::left_join(GHCN.data.final$spatial %>% dplyr::as_data_frame() %>% dplyr::rename(x = coords.x1, y = coords.x2), by = "ID")
   })
 })
 names(GHCN.GDD.incremented.sd) <- GDDs
@@ -147,22 +172,43 @@ names(GHCN.GDD.incremented.sd) <- GDDs
 ##### MODEL THE NICHE PROBABILITY USING SVM #####
 # Calculate gdd svm models for each base GDD value
 
-# Get the distance matrix between stations, using the geodetic on the WGS84 ellipsoid
-GHCN.data.final.distm <- geosphere::distm(GHCN.data.final$spatial, fun = distGeo)
-GHCN.data.final.distm[GHCN.data.final.distm == 0] <- NA
-GHCN.data.final.distm.mean <- GHCN.data.final.distm %>% matrixStats::rowMins(na.rm = T) %>% mean() # mean distance to nearest neighboring station is 111 km
+GHCN.GDD.incremented.sd.ecef <- lapply(GHCN.GDD.incremented.sd, function(X){
+  X.ecef <- wgs84_to_ecef(lon = X$x, 
+                          lat = X$y, 
+                          elev = X$elevation)
+  return(X %>% dplyr::mutate(x_ecef = X.ecef$'x',
+                             y_ecef = X.ecef$'y',
+                             z_ecef = X.ecef$'z'))
+})
 
-GHCN.GDD.incremented.sd_0_ecef <- wgs84_to_ecef(lon = GHCN.GDD.incremented.sd$`0`$x, 
-                                                lat = GHCN.GDD.incremented.sd$`0`$y, 
-                                                elev = GHCN.GDD.incremented.sd$`0`$elevation)
-GHCN.GDD.incremented.sd$`0` %<>%
-  dplyr::mutate(x_ecef = GHCN.GDD.incremented.sd_0_ecef$'x',
-                y_ecef = GHCN.GDD.incremented.sd_0_ecef$'y',
-                z_ecef = GHCN.GDD.incremented.sd_0_ecef$'z')
+### Three examples
+registerDoParallel(4)
+svm.asia.geo <- foreach(base = GHCN.GDD.incremented.sd.ecef) %dopar%
+  e1071::svm(as.factor(GDD >= 2000) ~ x + y + elevation + SD_change, data = base, probability = T)
 
-dist(GHCN.GDD.incremented.sd_0_ecef %>% as_data_frame())
+svm.asia.ecef <- foreach(base = GHCN.GDD.incremented.sd.ecef) %dopar%
+  e1071::svm(as.factor(GDD >= 2000) ~ x_ecef + y_ecef + z_ecef + SD_change, data = base, probability = T)
 
-test.model <- svm(as.factor(GDD >= 2000) ~ x_ecef + y_ecef + z_ecef + elevation + SD_change, data = GHCN.GDD.incremented.sd$`0`, probability = T)
+svm.asia.ecef.elev <- foreach(base = GHCN.GDD.incremented.sd.ecef) %dopar%
+  e1071::svm(as.factor(GDD >= 2000) ~ x_ecef + y_ecef + z_ecef + elevation + SD_change, data = base, probability = T)
+stopImplicitCluster()
+
+### Let's try tuning.
+this.tune <- tune.control(sampling = "cross",
+                          cross = 2,
+                          nrepeat = 10)
+test <- tune.svm(as.factor(GDD >= 2000) ~ x + y + elevation,
+                          data = GHCN.GDD.incremented.sd.ecef[['0']] %>% 
+                            dplyr::filter(SD_change == 0),
+                          probability = T,
+                          gamma = 2^(-3:0),
+                          cost = 2^(1:8),
+                          tunecontrol = this.tune)
+
+
+
+
+
 
 ASIA_rast_etopo5.points <- rasterToPoints(ASIA_rast_etopo5) %>% as_data_frame()
 ASIA_rast_etopo5.ecef <- wgs84_to_ecef(lon = ASIA_rast_etopo5.points$x, lat = ASIA_rast_etopo5.points$y, elev = ASIA_rast_etopo5.points$layer) %>% as_data_frame()
