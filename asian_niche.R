@@ -1,5 +1,4 @@
 ## This is the code for the pan-Asian niche reconstructions
-# yadda yaddda
 
 # install.packages("FedData")
 # devtools::install_github("bocinsky/FedData")
