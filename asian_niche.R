@@ -21,7 +21,7 @@ pkg_test("magrittr")
 pkg_test("plyr")
 pkg_test("hadley/tidyverse")
 pkg_test("e1071")
-pkg_test("caret")
+# pkg_test("caret")
 
 # Force Raster to load large rasters into memory
 rasterOptions(chunksize=2e+08,maxmemory=2e+09)
@@ -194,7 +194,45 @@ svm.asia.ecef.elev <- foreach(base = GHCN.GDD.incremented.sd.ecef[1]) %dopar%
 stopImplicitCluster()
 
 ### Show differences
+ASIA_rast_etopo5.df <- rasterToPoints(ASIA_rast_etopo5) %>% 
+  as_data_frame() %>%
+  dplyr::rename(elevation = ASIA_rast_etopo5)
+ASIA_rast_etopo5.df <- wgs84_to_ecef(lon = ASIA_rast_etopo5.df$x, lat = ASIA_rast_etopo5.df$y, elev = ASIA_rast_etopo5.df$elevation) %>% 
+  dplyr::as_data_frame() %>%
+  dplyr::rename(x_ecef = x,
+                y_ecef = y,
+                z_ecef = z) %>%
+  dplyr::bind_cols(ASIA_rast_etopo5.df)
 
+
+SD_change <- 0
+
+svm.asia.geo.predict <- ASIA_rast_etopo5 %>%
+  raster::setValues(values = predict(svm.asia.geo[[1]], 
+                                     newdata = ASIA_rast_etopo5.df %>%
+                                       dplyr::mutate(SD_change = SD_change),
+                                     probability = T) %>% 
+                      attr(which = "probabilities") %>% 
+                      as_data_frame() %>% 
+                      .[["TRUE"]],
+                    index = which(!is.na(ASIA_rast_etopo5[])))
+
+
+raster::plot(svm.asia.geo.predict)
+svm.asia.geo.predict %>% rasterVis::levelplot()
+
+svm.asia.geo <- lapply(-20:20,function(SD_change){
+  ASIA_rast_etopo5[!is.na(ASIA_rast_etopo5)] <- predict(svm.asia.geo[[1]], 
+                                                        newdata = 
+                                                          ASIA_rast_etopo5.points %>% 
+                                                          rename(x = x,
+                                                                 y = y,
+                                                                 elevation = ASIA_rast_etopo5) %>%
+                                                          dplyr::mutate(SD_change = SD_change),
+                                                        probability = T
+  ) %>% attr(which = "probabilities") %>% as_data_frame() %>% .[["TRUE"]]
+  return(ASIA_rast_etopo5_0)
+})
 
 
 
@@ -203,12 +241,12 @@ this.tune <- tune.control(sampling = "cross",
                           cross = 2,
                           nrepeat = 10)
 test <- tune.svm(as.factor(GDD >= 2000) ~ x + y + elevation,
-                          data = GHCN.GDD.incremented.sd.ecef[['0']] %>% 
-                            dplyr::filter(SD_change == 0),
-                          probability = T,
-                          gamma = 2^(-3:0),
-                          cost = 2^(1:8),
-                          tunecontrol = this.tune)
+                 data = GHCN.GDD.incremented.sd.ecef[['0']] %>% 
+                   dplyr::filter(SD_change == 0),
+                 probability = T,
+                 gamma = 2^(-3:0),
+                 cost = 2^(1:8),
+                 tunecontrol = this.tune)
 
 
 
@@ -216,8 +254,6 @@ test <- tune.svm(as.factor(GDD >= 2000) ~ x + y + elevation,
 
 
 
-ASIA_rast_etopo5.points <- rasterToPoints(ASIA_rast_etopo5) %>% as_data_frame()
-ASIA_rast_etopo5.ecef <- wgs84_to_ecef(lon = ASIA_rast_etopo5.points$x, lat = ASIA_rast_etopo5.points$y, elev = ASIA_rast_etopo5.points$ASIA_rast_etopo5) %>% as_data_frame()
 
 # ASIA_rast_etopo5_0 <- ASIA_rast_etopo5
 test.out <- lapply(-20:20,function(SD_change){
