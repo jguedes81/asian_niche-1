@@ -3,24 +3,24 @@
 # install.packages("FedData")
 # devtools::install_github("bocinsky/FedData")
 library(FedData)
-pkg_test("parallel")
-pkg_test("foreach")
-pkg_test("doParallel")
-pkg_test("R.utils")
-pkg_test("Hmisc")
-pkg_test("zoo")
-pkg_test("abind")
-pkg_test("mgcv")
-pkg_test("rgbif")
-pkg_test("rgdal")
-pkg_test("ncdf4")
-pkg_test("geomapdata")
-pkg_test("matrixStats")
-pkg_test("raster")
-pkg_test("magrittr")
-pkg_test("plyr")
-pkg_test("hadley/tidyverse")
-pkg_test("e1071")
+FedData::pkg_test("parallel")
+FedData::pkg_test("foreach")
+FedData::pkg_test("doParallel")
+FedData::pkg_test("R.utils")
+FedData::pkg_test("Hmisc")
+FedData::pkg_test("zoo")
+FedData::pkg_test("abind")
+FedData::pkg_test("mgcv")
+FedData::pkg_test("rgbif")
+FedData::pkg_test("rgdal")
+FedData::pkg_test("ncdf4")
+FedData::pkg_test("geomapdata")
+FedData::pkg_test("matrixStats")
+FedData::pkg_test("raster")
+FedData::pkg_test("magrittr")
+FedData::pkg_test("plyr")
+FedData::pkg_test("hadley/tidyverse")
+FedData::pkg_test("e1071")
 # pkg_test("caret")
 
 # Force Raster to load large rasters into memory
@@ -39,11 +39,12 @@ calibration.years <- 1961:1990
 # Redo all calculations?
 force.redo = FALSE
 
+# Set this to your google maps elevation api key
+google_maps_elevation_api_key = "AIzaSyDi4YVDZPt6uH1C1vF8YRpbp1mxqsWbi5M"
+
 ##### BASIC DATA #####
 ## The basic data for this analysis includes a 1 arc-min elevation model (ETOPO1)
 ## that must be limited to landforms.
-
-
 
 # Get the ETOPO1 grid-aligned dataset.
 dir.create("./OUTPUT/DATA/ETOPO1/", showWarnings = FALSE, recursive = TRUE)
@@ -115,7 +116,7 @@ if(force.redo | !file.exists("./OUTPUT/ASIA_rast_etopo5.tif")){
 GHCN.data.final <- prepare_ghcn(region = ASIA_poly, 
                                 label = "ASIA_poly", 
                                 calibration.years = calibration.years, 
-                                google_maps_elevation_api_key = "AIzaSyDi4YVDZPt6uH1C1vF8YRpbp1mxqsWbi5M",
+                                google_maps_elevation_api_key = google_maps_elevation_api_key,
                                 force.redo = force.redo)
 
 ## An example of plotting the GHCN data
@@ -152,6 +153,7 @@ crop_GDD <- read.csv("./DATA/crop_GDD_needs.csv")
 # Transform GHCN data to GDDs of each base, and modulate to Marcott
 GDDs <- sort(unique(crop_GDD$base_t))
 GHCN.GDD.incremented.sd <- lapply(GDDs,function(base){
+  
   out <- lapply(sample.points,function(change){
     GHCN.GDDs <- lapply(GHCN.data.final$climatology,function(station){
       return(sdModulator(data.df=station,
@@ -161,13 +163,29 @@ GHCN.GDD.incremented.sd <- lapply(GDDs,function(base){
     })
     return(dplyr::data_frame(SD_change = change, ID = names(GHCN.GDDs), GDD = unlist(GHCN.GDDs)))
   })
+  
   return({
     out %>% 
       dplyr::bind_rows() %>%
-      dplyr::left_join(GHCN.data.final$spatial %>% dplyr::as_data_frame() %>% dplyr::rename(x = coords.x1, y = coords.x2), by = "ID")
+      dplyr::left_join(GHCN.data.final$spatial %>% 
+                         dplyr::as_data_frame() %>% 
+                         dplyr::rename(x = coords.x1, y = coords.x2), 
+                       by = "ID")
   })
 })
 names(GHCN.GDD.incremented.sd) <- GDDs
+
+
+
+
+
+
+
+
+
+
+
+
 
 ##### MODEL THE NICHE PROBABILITY USING SVM #####
 # Calculate gdd svm models for each base GDD value
