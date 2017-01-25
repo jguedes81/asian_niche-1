@@ -19,7 +19,7 @@ module load geos
 module load hdf5
 module load netcdf
 
-cd git/asian_niche
+cd /data/cas/bocinsky/git/asian_niche
 git pull
 
 Rscript batch_asian_niche.R
