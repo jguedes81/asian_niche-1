@@ -166,8 +166,8 @@ stopCluster(cl)
 
 #### Interpolating crop niche extent ####
 # Create a spatialPointsDataFrame of the etopo5 data, and convert to WGS84 ellipsoid
-ASIA_rast_etopo5 <- raster("./OUTPUT/ASIA_rast_etopo5.tif")  %>%
-  crop(extent(90,92,40,42))
+ASIA_rast_etopo5 <- raster("./OUTPUT/ASIA_rast_etopo5.tif") # %>%
+#  crop(extent(90,92,40,42))
 ASIA_rast_etopo5.sp <- ASIA_rast_etopo5 %>% raster::rasterToPoints(spatial = T) %>%
   sp::spTransform(sp::CRS(raster::projection(GHCN.data.final$spatial)))
 ASIA_rast_etopo5.temp <- ASIA_rast_etopo5
