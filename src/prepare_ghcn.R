@@ -3,10 +3,14 @@
 ## This script downloads and cleans daily climate records from the Global Historical Climate Database.
 # It should be run from ./GUEDES_ET_AL_2015_FINAL.R
 
-prepare_ghcn <- function(region, label, calibration.years, google_maps_elevation_api_key, force.redo = FALSE){
+prepare_ghcn <- function(region,
+                         label,
+                         calibration.years,
+                         google_maps_elevation_api_key,
+                         force.redo = FALSE){
   # Keep only the clean stations
   if(!force.redo | file.exists("./OUTPUT/ghcn_data_final.Rds")){
-    GHCN.data.final <- readRDS('./OUTPUT/ghcn_data_final.Rds')
+    GHCN.data.final <- readr::read_rds('./OUTPUT/ghcn_data_final.Rds')
     
     return(GHCN.data.final)
   }
