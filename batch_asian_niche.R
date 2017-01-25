@@ -117,12 +117,12 @@ marcott2013 <- prepare_marcott(calibration.years = calibration.years)
 # Here, we sample from -20 to 20 SD, at 1 SD interval (this is probably overkill)
 sample.points <- -20:20
 
+# Read in data on different crop GDD needs
+crop_GDD <- readr::read_csv("./DATA/crop_GDD_needs.csv")
+
 # create the cluster for parallel computation
 cl <- makeCluster(cores, type = "PSOCK")
 registerDoParallel(cl)
-
-# Read in data on different crop GDD needs
-crop_GDD <- read.csv("./DATA/crop_GDD_needs.csv")
 
 # Transform GHCN data to GDDs of each base, and modulate to Marcott
 GDDs <- sort(unique(crop_GDD$base_t))
@@ -166,8 +166,8 @@ stopCluster(cl)
 
 #### Interpolating crop niche extent ####
 # Create a spatialPointsDataFrame of the etopo5 data, and convert to WGS84 ellipsoid
-ASIA_rast_etopo5 <- raster("./OUTPUT/ASIA_rast_etopo5.tif") %>%
-  crop(extent(90,92,40,42))
+ASIA_rast_etopo5 <- raster("./OUTPUT/ASIA_rast_etopo5.tif") # %>%
+  # crop(extent(90,92,40,42))
 ASIA_rast_etopo5.sp <- ASIA_rast_etopo5 %>% raster::rasterToPoints(spatial = T) %>%
   sp::spTransform(sp::CRS(raster::projection(GHCN.data.final$spatial)))
 ASIA_rast_etopo5.temp <- ASIA_rast_etopo5
@@ -245,10 +245,10 @@ gdd_model_files <- paste0("./OUTPUT/MODELS/",crop_GDD$crop,"_models.rds")
 
 if(force.redo){
   unlink("./OUTPUT/MODELS", recursive = TRUE, force = TRUE)
-  dir.create("./OUTPUT/MODELS/")
+  dir.create("./OUTPUT/MODELS/", showWarnings = F)
   crop_GDD_run <- crop_GDD
-  
 }else{
+  dir.create("./OUTPUT/MODELS/", showWarnings = F)
   crop_GDD_run <- crop_GDD[!file.exists(gdd_model_files),]
 }
 
@@ -294,8 +294,8 @@ stopCluster(cl)
 # create the cluster for parallel computation
 if(force.redo){
   unlink("./OUTPUT/RECONS", recursive = TRUE, force = TRUE)
-  dir.create("./OUTPUT/RECONS/")
 }
+dir.create("./OUTPUT/RECONS/", showWarnings = F)
 
 cl <- makeCluster(min(cores,nrow(crop_GDD)), type = "PSOCK")
 registerDoParallel(cl)
