@@ -1,4 +1,5 @@
 ## This is the code for the pan-Asian niche reconstructions
+setwd("/data/cas/bocinsky/git/asian_niche/")
 
 ## Load all packages
 # FedData provides functions for getting GHCN data, 
