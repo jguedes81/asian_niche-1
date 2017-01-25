@@ -4,7 +4,7 @@
 #SBATCH --error=asian_niche.err    ### File in which to store job error messages
 #SBATCH --time=7-00:00:00   ### Wall clock time limit in Days-HH:MM:SS
 #SBATCH --nodes=1           ### Number of Nodes
-#SBATCH --ntasks-per-node=20 ### Number of tasks (MPI processes)
+#SBATCH --ntasks-per-node=15 ### Number of tasks (MPI processes)
 #SBATCH --cpus-per-task=1  ### Number of threads per task (OMP threads)
 #SBATCH --mem=256000          ### memory in MB
 #SBATCH --mail-type=end 
