@@ -1,0 +1,25 @@
+#!/bin/bash
+#SBATCH --job-name=asian_niche     ### Job Name
+#SBATCH --output=asian_niche.out   ### File in which to store job output
+#SBATCH --error=asian_niche.err    ### File in which to store job error messages
+#SBATCH --time=7-00:00:00   ### Wall clock time limit in Days-HH:MM:SS
+#SBATCH --nodes=1           ### Number of Nodes
+#SBATCH --ntasks-per-node=20 ### Number of tasks (MPI processes)
+#SBATCH --cpus-per-task=1  ### Number of threads per task (OMP threads)
+#SBATCH --mem=256000          ### memory in MB
+#SBATCH --mail-type=end 
+#SBATCH --mail-user=bocinsky@wsu.edu
+
+##module load gcc
+module load git
+module load r
+module load gdal
+module load proj
+module load geos
+module load hdf5
+module load netcdf
+
+cd git/asian_niche
+git pull
+
+Rscript batch_asian_niche.R

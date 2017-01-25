@@ -4,7 +4,13 @@
 # It should be run from ./GUEDES_ET_AL_2015_FINAL.R
 
 prepare_ghcn <- function(region, label, calibration.years, google_maps_elevation_api_key, force.redo = FALSE){
-  
+  # Keep only the clean stations
+  if(!force.redo | file.exists("./OUTPUT/ghcn_data_final.Rds")){
+    GHCN.data.final <- readRDS('./OUTPUT/ghcn_data_final.Rds')
+    
+    return(GHCN.data.final)
+  }
+
   ## GHCN DATA ##
   # These are the GHCN stations that will be used to calibrate the interpolation model.
   GHCN.data <- FedData::get_ghcn_daily(
