@@ -9,7 +9,7 @@ prepare_ghcn <- function(region,
                          google_maps_elevation_api_key,
                          force.redo = FALSE){
   # Keep only the clean stations
-  if(!force.redo | file.exists("./OUTPUT/ghcn_data_final.Rds")){
+  if(!force.redo & file.exists("./OUTPUT/ghcn_data_final.Rds")){
     GHCN.data.final <- readr::read_rds('./OUTPUT/ghcn_data_final.Rds')
     
     return(GHCN.data.final)
