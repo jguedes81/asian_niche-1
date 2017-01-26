@@ -263,32 +263,35 @@ smooth.preds <- function(y){
   return(y)
 }
 
-# create the cluster for parallel computation
-cl <- makeCluster(min(cores,nrow(crop_GDD_run)), type = "PSOCK")
-registerDoParallel(cl)
-
-options(dplyr.show_progress = FALSE)
-chunk_size <- 10000
-
-gdd.models <- foreach::foreach(crop = 1:nrow(crop_GDD_run),
-                               .packages = c("fields","dplyr","magrittr","foreach","doParallel","readr"),
-                               .export = c("sample.points")) %dopar% {
-                                 
-                                 # Threshold for indicator kriging
-                                 GHCN.GDD.incremented.sd[[as.character(crop_GDD_run[crop,"base_t"])]] %>%
-                                   dplyr::mutate(GDD_thresh = {GDD >= as.numeric(crop_GDD_run[crop,"min_gdd"])}) %>%
-                                   dplyr::group_by(SD_change) %>%
-                                   dplyr::do(out = krige_and_predict(.)) %$%
-                                   out %>%
-                                   sapply("[[","prediction") %>%
-                                   apply(1,smooth.preds) %>%
-                                   readr::write_rds(paste0("./OUTPUT/MODELS/",crop_GDD_run[crop,"crop"],"_models.rds"), compress = "xz")
-                                 
-                                 return(paste0("./OUTPUT/MODELS/",crop_GDD_run[crop,"crop"],"_models.rds"))
-                               }
-
-# stop the cluster (will free memory)
-stopCluster(cl)
+if(nrow(crop_GDD_run) > 0){
+  # create the cluster for parallel computation
+  cl <- makeCluster(min(cores,nrow(crop_GDD_run)), type = "PSOCK")
+  registerDoParallel(cl)
+  
+  options(dplyr.show_progress = FALSE)
+  chunk_size <- 10000
+  
+  gdd.models <- foreach::foreach(crop = 1:nrow(crop_GDD_run),
+                                 .packages = c("fields","dplyr","magrittr","foreach","doParallel","readr"),
+                                 .export = c("sample.points")) %dopar% {
+                                   
+                                   # Threshold for indicator kriging
+                                   GHCN.GDD.incremented.sd[[as.character(crop_GDD_run[crop,"base_t"])]] %>%
+                                     dplyr::mutate(GDD_thresh = {GDD >= as.numeric(crop_GDD_run[crop,"min_gdd"])}) %>%
+                                     dplyr::group_by(SD_change) %>%
+                                     dplyr::do(out = krige_and_predict(.)) %$%
+                                     out %>%
+                                     sapply("[[","prediction") %>%
+                                     apply(1,smooth.preds) %>%
+                                     readr::write_rds(paste0("./OUTPUT/MODELS/",crop_GDD_run[crop,"crop"],"_models.rds"), compress = "xz")
+                                   
+                                   return(paste0("./OUTPUT/MODELS/",crop_GDD_run[crop,"crop"],"_models.rds"))
+                                 }
+  
+  # stop the cluster (will free memory)
+  stopCluster(cl)
+  
+}
 
 ## Predicting crop niche from smoothed Krige models
 # Calculate niches for each crop using the Marcott et al. 2013.
@@ -298,7 +301,8 @@ if(force.redo){
 }
 dir.create("./OUTPUT/RECONS/", showWarnings = F)
 
-cl <- makeCluster(min(cores,nrow(crop_GDD)), type = "PSOCK")
+# cl <- makeCluster(min(cores,nrow(crop_GDD)), type = "PSOCK")
+cl <- makeCluster(4, type = "PSOCK")
 registerDoParallel(cl)
 
 gdd.recons <- foreach::foreach(crop = crop_GDD$crop,
