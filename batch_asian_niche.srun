@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --partition=cas         ### Running on the CAS partition
-#SBATCH --job-name=asian_niche     ### Job Name
-#SBATCH --output=asian_niche.out   ### File in which to store job output
-#SBATCH --error=asian_niche.err    ### File in which to store job error messages
+#SBATCH --job-name=batch_asian_niche     ### Job Name
+#SBATCH --output=batch_asian_niche.out   ### File in which to store job output
+#SBATCH --error=batch_asian_niche.err    ### File in which to store job error messages
 #SBATCH --time=7-00:00:00   ### Wall clock time limit in Days-HH:MM:SS
 #SBATCH --nodes=1           ### Number of Nodes
 #SBATCH --ntasks-per-node=20 ### Number of tasks (MPI processes)
