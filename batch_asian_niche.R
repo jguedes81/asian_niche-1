@@ -301,13 +301,11 @@ if(force.redo){
 }
 dir.create("./OUTPUT/RECONS/", showWarnings = F)
 
-# cl <- makeCluster(min(cores,nrow(crop_GDD)), type = "PSOCK")
-cl <- makeCluster(4, type = "PSOCK")
+cl <- makeCluster(cores, type = "PSOCK")
+# cl <- makeCluster(4, type = "PSOCK")
 registerDoParallel(cl)
 
-gdd.recons <- foreach::foreach(crop = crop_GDD$crop,
-                               .packages = c("dplyr","magrittr","foreach","doParallel","readr","ncdf4","raster"),
-                               .export = c("sample.points")) %dopar% {
+gdd.recons <- foreach::foreach(crop = crop_GDD$crop) %do% {
                                  
                                  if(all(file.exists(paste0("./OUTPUT/RECONS/",crop,"_",c("Z_Lower","Z","Z_Upper"),".tif")))) return(NULL)
                                  
@@ -320,7 +318,9 @@ gdd.recons <- foreach::foreach(crop = crop_GDD$crop,
                                    if(file.exists(paste0("./OUTPUT/RECONS/",crop,"_",Zs,".tif"))) return(NULL)
                                    
                                    crop.predictions <- foreach::foreach(crop.model = crop.models,
-                                                                        .combine = rbind) %do% {
+                                                                        .combine = rbind,
+                                                                        .packages = c("dplyr","magrittr","foreach","doParallel","readr","ncdf4","raster"),
+                                                                        .export = c("sample.points")) %dopar% {
                                                                           predict(crop.model, newdata = marcott2013[[Zs]]) %>%
                                                                             magrittr::multiply_by(10000) %>% 
                                                                             as.integer()
