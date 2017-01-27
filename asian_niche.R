@@ -356,8 +356,8 @@ predictor <- function(x, newdata){
     tibble::as_tibble()
 }
 
-cl <- makeCluster(opt$cores, type = "PSOCK")
-# cl <- makeCluster(4, type = "PSOCK")
+# cl <- makeCluster(opt$cores, type = "PSOCK")
+cl <- makeCluster(min(opt$cores,5), type = "PSOCK")
 registerDoParallel(cl)
 
 gdd.recons <- foreach::foreach(crop = crop_GDD$crop,
