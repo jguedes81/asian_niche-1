@@ -87,8 +87,8 @@ out <- function(...){
 
 #Define the study region
 ASIA_poly <- 
-  # extent(30,150,5,60) %>% ## THE REAL EURASIAN POLYGON
-  extent(66,72,37,43) %>% ## FOR TESTING PURPOSES ONLY
+  extent(30,150,5,60) %>% ## THE REAL EURASIAN POLYGON
+  # extent(66,72,37,43) %>% ## FOR TESTING PURPOSES ONLY
   FedData::polygon_from_extent("+proj=longlat +ellps=GRS80")
 
 # Set the calibration period for paleoclimate reconstructions
