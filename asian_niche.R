@@ -197,7 +197,7 @@ registerDoParallel(cl)
 GDDs <- sort(unique(crop_GDD$base_t))
 GHCN.GDD.incremented.sd <- foreach::foreach(base = GDDs) %do% {
   
-  out <- foreach::foreach(change = sample.points,
+  out.list <- foreach::foreach(change = sample.points,
                           .packages = c("foreach","magrittr")) %dopar% {
                             
                             GHCN.GDDs <- foreach::foreach(station = GHCN.data.final$climatology, .combine = c) %do% {
@@ -215,9 +215,9 @@ GHCN.GDD.incremented.sd <- foreach::foreach(base = GDDs) %do% {
                                               GDD = GHCN.GDDs))
                             
                           }
-  names(out) <- sample.points
+  names(out.list) <- sample.points
   
-  return(out %>% 
+  return(out.list %>% 
     dplyr::bind_rows() %>%
     dplyr::left_join(GHCN.data.final$spatial %>% 
                        dplyr::as_data_frame() %>% 
@@ -315,8 +315,8 @@ if(nrow(crop_GDD_run) > 0){
                                    GHCN.GDD.incremented.sd[[as.character(crop_GDD_run[crop,"base_t"])]] %>%
                                      dplyr::mutate(GDD_thresh = {GDD >= as.numeric(crop_GDD_run[crop,"min_gdd"])}) %>%
                                      dplyr::group_by(SD_change) %>%
-                                     dplyr::do(out = krige_and_predict(.)) %$%
-                                     out %>%
+                                     dplyr::do(out_preds = krige_and_predict(.)) %$%
+                                     out_preds %>%
                                      sapply("[[","prediction") %>%
                                      apply(1,smooth.preds) %>%
                                      tibble::tibble(model = .) %>%
@@ -383,11 +383,11 @@ gdd.recons <- foreach::foreach(crop = crop_GDD$crop,
                                                                  if(file.exists(out("RECONS/",crop,"_",Zs,".nc"))) 
                                                                    return(out("RECONS/",crop,"_",Zs,".nc"))
                                                                  
-                                                                 out <- crop.models
+                                                                 out_models <- crop.models
                                                                  
                                                                  gc();gc()
                                                                  
-                                                                 out@data %<>%
+                                                                 out_models@data %<>%
                                                                    dplyr::mutate(Zs = lapply(X = model,
                                                                                              FUN = predictor,
                                                                                              newdata = marcott2013[[Zs]])) %$%
@@ -397,7 +397,7 @@ gdd.recons <- foreach::foreach(crop = crop_GDD$crop,
                                                                    tibble::as_tibble() %>%
                                                                    magrittr::set_colnames(marcott2013$YearBP)
                                                                  
-                                                                 out %>%
+                                                                 out_models %>%
                                                                    as("SpatialPixelsDataFrame") %>%
                                                                    raster::brick() %>%
                                                                    raster::setZ(marcott2013$YearBP, name="Years BP") %>%
@@ -414,7 +414,7 @@ gdd.recons <- foreach::foreach(crop = crop_GDD$crop,
                                                                                        compression=9,
                                                                                        overwrite=TRUE)
                                                                  
-                                                                 rm(out)
+                                                                 rm(out_models)
                                                                  gc();gc()
                                                                  
                                                                  return(out("RECONS/",crop,"_",Zs,".nc"))
