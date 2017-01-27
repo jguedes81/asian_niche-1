@@ -309,7 +309,7 @@ if(nrow(crop_GDD_run) > 0){
   
   gdd.models <- foreach::foreach(crop = 1:nrow(crop_GDD_run),
                                  .packages = c("fields","dplyr","magrittr","foreach","doParallel","readr"),
-                                 .export = c("sample.points")) %dopar% {
+                                 .export = c("sample.points","out","opt")) %dopar% {
                                    
                                    # Threshold for indicator kriging
                                    GHCN.GDD.incremented.sd[[as.character(crop_GDD_run[crop,"base_t"])]] %>%
