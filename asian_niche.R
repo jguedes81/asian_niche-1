@@ -1,20 +1,41 @@
+#!/usr/bin/env Rscript
+# FedData provides functions for getting GHCN data, 
+# and the `pkg_test` function for installing/loading other packages
+devtools::install_github("bocinsky/FedData")
+# Python-style argument parsing
+FedData::pkg_test("optparse")
+
+# Set the number of parallel cores
+# We'll be using the snow-like functionality with Rmpi
+slurm_cores <- as.numeric(Sys.getenv("SLURM_NTASKS_PER_NODE"))
+
+# Use optparse for Python-style argument parsing
+# Define a set of options; only output file and force_redo for now
+option_list = list(
+  make_option(c("-o", "--output_dir"), type="character", default="./OUTPUT/", 
+              help="Output directory [default = %default]", metavar = "character"),
+  make_option(c("-n", "--cores"), type="numeric", default=ifelse(is.na(slurm_cores), 2, slurm_cores),
+              help="Number of cores for multicore run [default = %default]"),
+  make_option(c("-c", "--clean"), action="store_true", default=FALSE,
+              help="Delete output directory and re-run all analyses? [default= %default]")
+  # make_option(c("-v", "--verbose"), action="store_true", default=TRUE,
+  #             help="Print extra output [default= %default]"),
+  # make_option(c("-q", "--quietly"), action="store_false",
+  #             dest="verbose", help="Print little output [default= %default]"),
+
+); 
+
+opt_parser = OptionParser(option_list=option_list);
+opt = parse_args(opt_parser);
+
+### BEGIN SCRIPT ###
+
 start_time <- Sys.time()
 message("asian_niche.R started at ", start_time)
 
 ## This is the code for the pan-Asian niche reconstructions
-# Set the working directory, either from parameters passed to Rscript, or by default
-args <- commandArgs(trailingOnly = TRUE)
-if(length(args) > 0){
-  setwd(as.character(args[1]))
-}
-
-message("Working directory set to ",getwd())
 
 ## Load all packages
-# FedData provides functions for getting GHCN data, 
-# and the `pkg_test` function for installing/loading other packages
-devtools::install_github("bocinsky/FedData")
-
 # Packages for parallel processeing
 FedData::pkg_test("foreach")
 FedData::pkg_test("doParallel")
@@ -40,13 +61,29 @@ FedData::pkg_test("magrittr")
 FedData::pkg_test("hadley/tidyverse")
 
 
-##### SET PARAMETERS #####
+# Load all functions
+all.functions <- lapply(list.files("./src",full.names=T),
+                        source)
 
 # Force Raster to load large rasters into memory
 rasterOptions(chunksize=2e+08,maxmemory=2e+09)
 
-# Load all functions
-all.functions <- lapply(list.files("./src",full.names=T),source)
+##### SET PARAMETERS #####
+
+# Delete the output directory if requested, then create it
+opt$output_dir <- ifelse(stringr::str_sub(opt$output_dir,-1) != "/",
+                         stringr::str_c(opt$output_dir,"/"),
+                         opt$output_dir) 
+if(opt$clean) unlink(opt$output_dir,
+                     recursive = TRUE,
+                     force = TRUE)
+dir.create(opt$output_dir,
+           showWarnings = FALSE,
+           recursive = TRUE)
+# a function that builds output paths
+out <- function(...){
+  stringr::str_c(opt$output_dir,...)
+}
 
 #Define the study region
 ASIA_poly <- 
@@ -57,22 +94,11 @@ ASIA_poly <-
 # Set the calibration period for paleoclimate reconstructions
 calibration.years <- 1961:1990
 
-# Redo all calculations?
-force.redo = FALSE
-
 # Set this to your google maps elevation api key
 google_maps_elevation_api_key = "AIzaSyDi4YVDZPt6uH1C1vF8YRpbp1mxqsWbi5M"
 
-# Set the number of parallel cores
-# We'll be using the snow-like functionality with Rmpi
-slurm_cores <- Sys.getenv("SLURM_NTASKS_PER_NODE") %>% as.numeric()
-if (is.na(slurm_cores)){
-  cores = 2
-  message("SLURM_NTASKS_PER_NODE not available! Number of cores set to ",cores)
-}else{
-  cores = slurm_cores
-  message("Number of cores set to SLURM_NTASKS_PER_NODE = ",cores)
-}
+# Report the number of cores for parallel processing
+message("Number of cores set to SLURM_NTASKS_PER_NODE = ",opt$cores)
 
 ##### END SET PARAMETERS #####
 
@@ -82,17 +108,17 @@ if (is.na(slurm_cores)){
 
 message("Preparing the ETOPO5 grid-aligned dataset")
 time_check <-  Sys.time()
-if(!force.redo & file.exists("./OUTPUT/ASIA_rast_etopo5.tif")){
-  ASIA_rast_etopo5 <- raster("./OUTPUT/ASIA_rast_etopo5.tif")
+if(!opt$clean & file.exists(out("ASIA_rast_etopo5.tif"))){
+  ASIA_rast_etopo5 <- raster(out("ASIA_rast_etopo5.tif"))
 }else{
   # Get the Natural Earth land data
-  dir.create("./OUTPUT/DATA/NaturalEarth/ne_10m_land/", showWarnings = FALSE, recursive = TRUE)
-  FedData::download_data(url="http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_land.zip",destdir="./OUTPUT/DATA/NaturalEarth/")
-  unzip("./OUTPUT/DATA/NaturalEarth/ne_10m_land.zip", exdir="./OUTPUT/DATA/NaturalEarth/ne_10m_land/")
+  dir.create(out("DATA/NaturalEarth/ne_10m_land/"), showWarnings = FALSE, recursive = TRUE)
+  FedData::download_data(url="http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_land.zip",destdir=out("DATA/NaturalEarth/"))
+  unzip(out("DATA/NaturalEarth/ne_10m_land.zip"), exdir=out("DATA/NaturalEarth/ne_10m_land/"))
   
-  dir.create("./OUTPUT/DATA/NaturalEarth/", showWarnings = FALSE, recursive = TRUE)
-  FedData::download_data(url="http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_lakes.zip",destdir="./OUTPUT/DATA/NaturalEarth/")
-  unzip("./OUTPUT/DATA/NaturalEarth/ne_10m_lakes.zip", exdir="./OUTPUT/DATA/NaturalEarth/ne_10m_lakes/")
+  dir.create(out("DATA/NaturalEarth/"), showWarnings = FALSE, recursive = TRUE)
+  FedData::download_data(url="http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_lakes.zip",destdir=out("DATA/NaturalEarth/"))
+  unzip(out("DATA/NaturalEarth/ne_10m_lakes.zip"), exdir=out("DATA/NaturalEarth/ne_10m_lakes/"))
   
   data("ETOPO5")
   ASIA_rast_etopo5 <- ETOPO5 %>%
@@ -103,16 +129,16 @@ if(!force.redo & file.exists("./OUTPUT/ASIA_rast_etopo5.tif")){
            ymx = 90,
            crs = CRS("+proj=longlat +ellps=clrk66 +no_defs")) %>%
     raster::crop(y = sp::spTransform(ASIA_poly, CRSobj = raster::projection(.))) %>%
-    raster::mask(sp::spTransform(rgdal::readOGR("./OUTPUT/DATA/NaturalEarth/ne_10m_land/","ne_10m_land"),CRSobj = raster::projection(.))) %>%
-    raster::mask(sp::spTransform(rgdal::readOGR("./OUTPUT/DATA/NaturalEarth/ne_10m_lakes/","ne_10m_lakes"),CRSobj = raster::projection(.)), inverse = TRUE) %T>%
-    writeRaster(filename = "./OUTPUT/ASIA_rast_etopo5.tif",
+    raster::mask(sp::spTransform(rgdal::readOGR(out("DATA/NaturalEarth/ne_10m_land/"),"ne_10m_land"),CRSobj = raster::projection(.))) %>%
+    raster::mask(sp::spTransform(rgdal::readOGR(out("DATA/NaturalEarth/ne_10m_lakes/"),"ne_10m_lakes"),CRSobj = raster::projection(.)), inverse = TRUE) %T>%
+    writeRaster(filename = out("ASIA_rast_etopo5.tif"),
                 datatype="INT2S",
                 options=c("COMPRESS=DEFLATE", "ZLEVEL=9", "INTERLEAVE=BAND", "PHOTOMETRIC=MINISWHITE"),
                 overwrite=T,
                 setStatistics=FALSE)
   rm(ETOPO5)
-  unlink("./OUTPUT/DATA/NaturalEarth/ne_10m_lakes/", recursive = T, force = T)
-  unlink("./OUTPUT/DATA/NaturalEarth/ne_10m_land/", recursive = T, force = T)
+  unlink(out("DATA/NaturalEarth/ne_10m_lakes/"), recursive = T, force = T)
+  unlink(out("DATA/NaturalEarth/ne_10m_land/"), recursive = T, force = T)
 }
 
 message("ETOPO5 grid-aligned dataset preparation complete: ", capture.output(Sys.time() - time_check))
@@ -130,7 +156,7 @@ GHCN.data.final <- prepare_ghcn(region = ASIA_poly,
                                 label = "ASIA_poly", 
                                 calibration.years = calibration.years, 
                                 google_maps_elevation_api_key = google_maps_elevation_api_key,
-                                force.redo = force.redo)
+                                force.redo = opt$clean)
 message("GHCN preparation complete: ", capture.output(Sys.time() - time_check))
 ## An example of plotting the GHCN data
 # climate_plotter(data = GHCN.data.final, station = "CHM00051334", element = "TMIN")
@@ -164,7 +190,7 @@ sample.points <- -20:20
 crop_GDD <- readr::read_csv("./DATA/crop_GDD_needs.csv")
 
 # create the cluster for parallel computation
-cl <- makeCluster(cores, type = "PSOCK")
+cl <- makeCluster(opt$cores, type = "PSOCK")
 registerDoParallel(cl)
 
 # Transform GHCN data to GDDs of each base, and modulate to Marcott
@@ -176,30 +202,26 @@ GHCN.GDD.incremented.sd <- foreach::foreach(base = GDDs) %do% {
                             
                             GHCN.GDDs <- foreach::foreach(station = GHCN.data.final$climatology, .combine = c) %do% {
                               
-                              sdModulator(data.df = station,
+                              return(sdModulator(data.df = station,
                                           temp.change.sd = change,
                                           t.base = base,
-                                          t.cap = 30) %>%
-                                return()
+                                          t.cap = 30))
                               
                             }
                             names(GHCN.GDDs) <- names(GHCN.data.final$climatology)
                             
-                            dplyr::data_frame(SD_change = change,
+                            return(dplyr::data_frame(SD_change = change,
                                               ID = names(GHCN.GDDs),
-                                              GDD = GHCN.GDDs) %>%
-                              return()
+                                              GDD = GHCN.GDDs))
                             
                           }
   names(out) <- sample.points
   
-  out %>% 
+  return(out %>% 
     dplyr::bind_rows() %>%
     dplyr::left_join(GHCN.data.final$spatial %>% 
                        dplyr::as_data_frame() %>% 
-                       dplyr::rename(x = LONGITUDE, y = LATITUDE), 
-                     by = "ID") %>%
-    return()
+                       dplyr::rename(x = LONGITUDE, y = LATITUDE), by = "ID"))
 }
 names(GHCN.GDD.incremented.sd) <- GDDs
 
@@ -243,25 +265,24 @@ krige_and_predict <- function(dt){
     prediction %>%
     unlist()
   
-  list(model = model, prediction = prediction) %>%
-    return()
+  return(list(model = model, prediction = prediction))
   
 }
 
 # Calculate gdd kriging models for each crop
-gdd_model_files <- paste0("./OUTPUT/MODELS/",crop_GDD$crop,"_models.rds")
+gdd_model_files <- out("MODELS/",crop_GDD$crop,"_models.rds")
 
-if(force.redo){
-  unlink("./OUTPUT/MODELS", recursive = TRUE, force = TRUE)
-  dir.create("./OUTPUT/MODELS/", showWarnings = F)
+if(opt$clean){
+  unlink(out("MODELS"), recursive = TRUE, force = TRUE)
+  dir.create(out("MODELS/"), showWarnings = F)
   crop_GDD_run <- crop_GDD
 }else{
-  dir.create("./OUTPUT/MODELS/", showWarnings = F)
+  dir.create(out("MODELS/"), showWarnings = F)
   crop_GDD_run <- crop_GDD[!file.exists(gdd_model_files),]
 }
 
 if(nrow(crop_GDD_run) == 0){
-message("All indicator Krige models have already been calculated. Continuing.")
+  message("All indicator Krige models have already been calculated. Continuing.")
 }else message("Calculating indicator Krige models for ",
               nrow(crop_GDD_run),
               " cultivars:\n",
@@ -280,7 +301,7 @@ smooth.preds <- function(y){
 
 if(nrow(crop_GDD_run) > 0){
   # create the cluster for parallel computation
-  cl <- makeCluster(min(cores,nrow(crop_GDD_run)), type = "PSOCK")
+  cl <- makeCluster(min(opt$cores,nrow(crop_GDD_run)), type = "PSOCK")
   registerDoParallel(cl)
   
   options(dplyr.show_progress = FALSE)
@@ -300,9 +321,9 @@ if(nrow(crop_GDD_run) > 0){
                                      apply(1,smooth.preds) %>%
                                      tibble::tibble(model = .) %>%
                                      maptools::spCbind(ASIA_rast_etopo5.sp,.) %>%
-                                     readr::write_rds(paste0("./OUTPUT/MODELS/",crop_GDD_run[crop,"crop"],"_models.rds"), compress = "xz")
+                                     readr::write_rds(out("MODELS/",crop_GDD_run[crop,"crop"],"_models.rds"), compress = "xz")
                                    
-                                   return(paste0("./OUTPUT/MODELS/",crop_GDD_run[crop,"crop"],"_models.rds"))
+                                   return(out("MODELS/",crop_GDD_run[crop,"crop"],"_models.rds"))
                                  }
   
   # stop the cluster (will free memory)
@@ -312,92 +333,103 @@ if(nrow(crop_GDD_run) > 0){
 message("Calculation indicator Krige models complete: ", capture.output(Sys.time() - time_check))
 
 ##### END INTERPOLATE CROP NICHE #####
-test <- readr::read_rds(paste0("./OUTPUT/MODELS/",crop_GDD_run[crop,"crop"],"_models.rds"))
-test@data %<>%
-  tibble::as_tibble() %>%
-  dplyr::mutate(Z = lapply(X = model,
-                             FUN = predict,
-                             newdata = marcott2013[["Z"]]))
-# 
-# test %>%
-#   as("SpatialPixelsDataFrame") %>%
-#   raster::raster(layer = "Z0") %>%
-#   plot()
-#   spplot("Z0")
-# 
-# 
-# %$%
-#   `Z0` %>%
-#   range()
-#   
-# test@data$model[[1]] %>%
-#   predict(newdata = -10:10)
 
 
 
-
-
+##### PREDICT CROP NICHE THROUGH TIME #####
 
 ## Predicting crop niche from smoothed Krige models
 # Calculate niches for each crop using the Marcott et al. 2013.
 # create the cluster for parallel computation
-if(force.redo){
-  unlink("./OUTPUT/RECONS", recursive = TRUE, force = TRUE)
+message("Generating niche reconstructions")
+time_check <-  Sys.time()
+if(opt$clean){
+  unlink(out("RECONS"), recursive = TRUE, force = TRUE)
 }
-dir.create("./OUTPUT/RECONS/", showWarnings = F)
+dir.create(out("RECONS/"), showWarnings = F)
 
-cl <- makeCluster(cores, type = "PSOCK")
+predictor <- function(x, newdata){
+  x %>%
+    predict(newdata = newdata) %>%
+    magrittr::multiply_by(100) %>% 
+    round() %>%
+    tibble::as_tibble()
+}
+
+cl <- makeCluster(opt$cores, type = "PSOCK")
 # cl <- makeCluster(4, type = "PSOCK")
 registerDoParallel(cl)
 
-gdd.recons <- foreach::foreach(crop = crop_GDD$crop) %do% {
+gdd.recons <- foreach::foreach(crop = crop_GDD$crop,
+                               .packages = c("magrittr",
+                                             "foreach"),
+                               .combine = c) %dopar% {
                                  
-                                 if(!file.exists(paste0("./OUTPUT/MODELS/",crop,"_models.rds"))) stop("Models for ",
+                                 if(!file.exists(out("MODELS/",crop,"_models.rds"))) stop("Models for ",
                                                                                                       crop,
                                                                                                       " are missing! Aborting.")
                                  
-                                 crop.models <- readr::read_rds(paste0("./OUTPUT/MODELS/",crop,"_models.rds"))
+                                 crop.recons <- out("RECONS/",crop,"_",c("Z_Lower","Z","Z_Upper"),".nc")
+                                 if(all(file.exists(crop.recons))) return(crop.recons)
+                                 
+                                 crop.models <- readr::read_rds(out("MODELS/",crop,"_models.rds"))
                                  
                                  crop.models@data %<>%
-                                   tibble::as_tibble() %>%
-                                   dplyr::mutate(Z_Lower = lapply(X = model,
-                                                            FUN = predict,
-                                                            newdata = marcott2013[["Z_Lower"]]),
-                                                 Z = lapply(X = model,
-                                                            FUN = predict,
-                                                            newdata = marcott2013[["Z"]]),
-                                                 Z_Upper = lapply(X = model,
-                                                            FUN = predict,
-                                                            newdata = marcott2013[["Z_Upper"]])
-                                                 )
+                                   tibble::as_tibble()
                                  
-                                 
-                                 foreach::foreach(Zs = c("Z_Lower","Z","Z_Upper")) %do% {
-                                   
-                                   if(file.exists(paste0("./OUTPUT/RECONS/",crop,"_",Zs,".tif"))) return(NULL)
-                                   
-                                   crop.predictions <- foreach::foreach(crop.model = crop.models,
-                                                                        .combine = rbind,
-                                                                        .packages = c("dplyr","magrittr","foreach","doParallel","readr","ncdf4","raster"),
-                                                                        .export = c("sample.points")) %dopar% {
-                                                                          predict(crop.model, newdata = marcott2013[[Zs]]) %>%
-                                                                            magrittr::multiply_by(10000) %>% 
-                                                                            as.integer()
-                                                                        }
-                                   
-                                   crop.predictions.rast <- brick(ASIA_rast_etopo5, nl=ncol(crop.predictions), values=F)
-                                   crop.predictions.rast[!is.na(ASIA_rast_etopo5[])] <- crop.predictions
-                                   writeRaster(crop.predictions.rast,
-                                               paste0("./OUTPUT/RECONS/",crop,"_",Zs,".tif"),
-                                               datatype = "INT2U",
-                                               options = c("COMPRESS=DEFLATE", "ZLEVEL=9", "INTERLEAVE=BAND"),
-                                               overwrite = T,
-                                               setStatistics = FALSE)
-                                   
-                                   return(paste0("../OUTPUT/RECONS/",crop,"_",Zs,".tif"))
-                                 }
-                                 
+                                 out.files <- foreach::foreach(Zs = c("Z_Lower","Z","Z_Upper"),
+                                                               .combine = c) %do% {
+                                                                 
+                                                                 if(file.exists(out("RECONS/",crop,"_",Zs,".nc"))) 
+                                                                   return(out("RECONS/",crop,"_",Zs,".nc"))
+                                                                 
+                                                                 out <- crop.models
+                                                                 
+                                                                 gc();gc()
+                                                                 
+                                                                 out@data %<>%
+                                                                   dplyr::mutate(Zs = lapply(X = model,
+                                                                                             FUN = predictor,
+                                                                                             newdata = marcott2013[[Zs]])) %$%
+                                                                   Zs %>%
+                                                                   dplyr::bind_cols() %>%
+                                                                   t() %>%
+                                                                   tibble::as_tibble() %>%
+                                                                   magrittr::set_colnames(marcott2013$YearBP)
+                                                                 
+                                                                 out %>%
+                                                                   as("SpatialPixelsDataFrame") %>%
+                                                                   raster::brick() %>%
+                                                                   raster::setZ(marcott2013$YearBP, name="Years BP") %>%
+                                                                   raster::writeRaster(out("RECONS/",crop,"_",Zs,".nc"),
+                                                                                       format="CDF",
+                                                                                       datatype = "INT1S",
+                                                                                       varname="niche_probability",
+                                                                                       varunit="unitless", 
+                                                                                       longname="Probability of being in the crop niche x 100",
+                                                                                       xname="Longitude",
+                                                                                       yname="Latitude",
+                                                                                       zname="Years BP",
+                                                                                       zunit="Years BP",
+                                                                                       compression=9,
+                                                                                       overwrite=TRUE)
+                                                                 
+                                                                 rm(out)
+                                                                 gc();gc()
+                                                                 
+                                                                 return(out("RECONS/",crop,"_",Zs,".nc"))
+                                                                 
+                                                               }
+                                 return(out.files)
                                }
+
 # stop the cluster (will free memory)
 stopCluster(cl)
+
+message("Generation of niche reconstructions complete: ", capture.output(Sys.time() - time_check))
+
+##### END PREDICT CROP NICHE THROUGH TIME #####
+
+message("asian_niche.R complete! Total run time: ", capture.output(Sys.time() - start_time))
+
 ### END SCRIPT ###

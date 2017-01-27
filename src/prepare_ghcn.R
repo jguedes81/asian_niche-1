@@ -9,8 +9,8 @@ prepare_ghcn <- function(region,
                          google_maps_elevation_api_key,
                          force.redo = FALSE){
   # Keep only the clean stations
-  if(!force.redo & file.exists("./OUTPUT/ghcn_data_final.Rds")){
-    GHCN.data.final <- readr::read_rds('./OUTPUT/ghcn_data_final.Rds')
+  if(!force.redo & file.exists(out("ghcn_data_final.Rds"))){
+    GHCN.data.final <- readr::read_rds(out('ghcn_data_final.Rds'))
     
     return(GHCN.data.final)
   }
@@ -22,8 +22,8 @@ prepare_ghcn <- function(region,
     label = label,
     elements=c("tmin","tmax","prcp"),
     years = calibration.years,
-    raw.dir="./OUTPUT/DATA/GHCN/RAW/",
-    extraction.dir = "./OUTPUT/DATA/GHCN/",
+    raw.dir=out("DATA/GHCN/RAW/"),
+    extraction.dir = out("DATA/GHCN/"),
     standardize=T,
     force.redo = force.redo
   )
@@ -42,7 +42,7 @@ prepare_ghcn <- function(region,
   GHCN.data <- GHCN.data[!(GHCN.data %>% sapply(length) < 2)]
   
   ## Clean the GHCN data
-  if(force.redo | !file.exists("./OUTPUT/ghcn_data_clean.Rds")){
+  if(force.redo | !file.exists(out("ghcn_data_clean.Rds"))){
     
     # Get run length encoding of missing data
     all.rles <- do.call(c,lapply(GHCN.data,function(test){
@@ -63,13 +63,13 @@ prepare_ghcn <- function(region,
     })
     names(GHCN.data.clean) <- names(GHCN.data)
     GHCN.data.clean <- GHCN.data.clean[!sapply(GHCN.data.clean, is.null)]
-    saveRDS(GHCN.data.clean,"./OUTPUT/ghcn_data_clean.Rds")
+    saveRDS(GHCN.data.clean,out("ghcn_data_clean.Rds"))
   }
-  GHCN.data.clean <- readRDS("./OUTPUT/ghcn_data_clean.Rds")
+  GHCN.data.clean <- readRDS(out("ghcn_data_clean.Rds"))
   
   
   # Keep only the clean stations
-  if(force.redo | !file.exists("./OUTPUT/ghcn_data_final.Rds")){
+  if(force.redo | !file.exists(out("ghcn_data_final.Rds"))){
     
     GHCN.stations <- GHCN.stations[GHCN.stations$ID %in% names(GHCN.data.clean),]
     
@@ -83,9 +83,9 @@ prepare_ghcn <- function(region,
     
     # Create a final dataset for use anywhere in Asia!
     GHCN.data.final <- list(spatial = GHCN.stations, weather = GHCN.data.clean, climatology = GHCN.data.averages)
-    saveRDS(GHCN.data.final,file='./OUTPUT/ghcn_data_final.Rds')
+    saveRDS(GHCN.data.final,file=out('ghcn_data_final.Rds'))
   }
-  GHCN.data.final <- readRDS('./OUTPUT/ghcn_data_final.Rds')
+  GHCN.data.final <- readRDS(out('ghcn_data_final.Rds'))
   
   return(GHCN.data.final)
 }
