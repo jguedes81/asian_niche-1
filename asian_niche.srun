@@ -23,4 +23,4 @@ module load netcdf
 cd /data/cas/bocinsky/git/asian_niche
 git pull
 
-Rscript batch_asian_niche.R
+Rscript asian_niche.R "/data/cas/bocinsky/git/asian_niche/"
