@@ -60,6 +60,8 @@ FedData::pkg_test("maptools")
 FedData::pkg_test("magrittr")
 FedData::pkg_test("hadley/tidyverse")
 
+# Plotting
+FedData::pkg_test("RColorBrewer")
 
 # Load all functions
 all.functions <- lapply(list.files("./src",full.names=T),
@@ -427,6 +429,89 @@ gdd.recons <- foreach::foreach(crop = crop_GDD$crop,
 stopCluster(cl)
 
 message("Generation of niche reconstructions complete: ", capture.output(Sys.time() - time_check))
+
+##### END PREDICT CROP NICHE THROUGH TIME #####
+
+
+
+##### BEGIN PLOT CROP NICHE THROUGH TIME #####
+
+## Plotting crop niche
+# create the cluster for parallel computation
+message("Plotting niche reconstructions")
+time_check <-  Sys.time()
+if(opt$clean){
+  unlink(out("PLOTS"), recursive = TRUE, force = TRUE)
+}
+dir.create(out("PLOTS/"), showWarnings = F)
+
+# cl <- makeCluster(opt$cores, type = "PSOCK")
+cl <- makeCluster(min(opt$cores,5), type = "PSOCK")
+registerDoParallel(cl)
+
+gdd.recons <- foreach::foreach(n = 1:nrow(crop_GDD),
+                               .packages = c("magrittr",
+                                             "foreach",
+                                             "RColorBrewer"),
+                               .combine = c) %dopar% {
+                                 
+                                 crop <- crop_GDD[n,]$crop
+                                 
+                                 rast <- raster::brick(out("RECONS/",crop,"_Z.nc")) %>%
+                                   magrittr::extract2(which(.@z$`Years BP` > 1000)) %>%
+                                   raster:::readAll() %>%
+                                   magrittr::divide_by(100)
+                                 
+                                 rast.lower <- raster::brick(out("RECONS/",crop,"_Z_Lower.nc")) %>%
+                                   magrittr::extract2(which(.@z$`Years BP` > 1000)) %>%
+                                   raster:::readAll() %>%
+                                   magrittr::divide_by(100)
+                                 
+                                 rast.upper <- raster::brick(out("RECONS/",crop,"_Z_Upper.nc")) %>%
+                                   magrittr::extract2(which(.@z$`Years BP` > 1000)) %>%
+                                   raster:::readAll() %>%
+                                   magrittr::divide_by(100)
+                                 
+                                 layer.names <- rast %>%
+                                   names() %>%
+                                   gsub(pattern = "X", replacement = "", x = .) %>%
+                                   as.numeric()
+                                 
+                                 pal <- c(rev(colorRampPalette(brewer.pal(9, "Blues")[2:9],
+                                                               bias = 1.5,
+                                                               space = "Lab")(50)),
+                                          colorRampPalette(brewer.pal(9, "Reds")[2:9],
+                                                           bias = 1.5,
+                                                           space = "Lab")(50))
+                                 
+                                 space_time_plot(the_brick = rast, 
+                                                 the_brick_lower = rast.lower, 
+                                                 the_brick_upper = rast.upper, 
+                                                 out_file = out("PLOTS/",crop,".pdf"),
+                                                 title = stringr::str_c(crop_GDD[1,]$Crop_long,
+                                                                        " — T_base: ",
+                                                                        crop_GDD[1,]$base_t,
+                                                                        "ºC, Required GDD: ",
+                                                                        crop_GDD[1,]$min_gdd) ,
+                                                 time = layer.names,
+                                                 timelim = c(max(layer.names),min(layer.names)),
+                                                 timeaxis =  seq(from = max(layer.names)-500,
+                                                                 to = min(layer.names),
+                                                                 by = -500),
+                                                 timelab = "Years BP",
+                                                 zbreaks = seq(0,1,0.01),
+                                                 zlab = "Probability of being in niche",
+                                                 zaxis = seq(0,1,0.1),
+                                                 zcolors = pal
+                                 )
+                                 
+                                 return(out.files)
+                               }
+
+# stop the cluster (will free memory)
+stopCluster(cl)
+
+message("Plotting of niche reconstructions complete: ", capture.output(Sys.time() - time_check))
 
 ##### END PREDICT CROP NICHE THROUGH TIME #####
 

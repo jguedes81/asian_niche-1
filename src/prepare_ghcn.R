@@ -63,9 +63,11 @@ prepare_ghcn <- function(region,
     })
     names(GHCN.data.clean) <- names(GHCN.data)
     GHCN.data.clean <- GHCN.data.clean[!sapply(GHCN.data.clean, is.null)]
-    saveRDS(GHCN.data.clean,out("ghcn_data_clean.Rds"))
+    readr::write_rds(GHCN.data.clean,
+                     path = out("ghcn_data_clean.Rds"),
+                     compress = "gz")
   }
-  GHCN.data.clean <- readRDS(out("ghcn_data_clean.Rds"))
+  GHCN.data.clean <- readr::read_rds(out("ghcn_data_clean.Rds"))
   
   
   # Keep only the clean stations
@@ -83,9 +85,12 @@ prepare_ghcn <- function(region,
     
     # Create a final dataset for use anywhere in Asia!
     GHCN.data.final <- list(spatial = GHCN.stations, weather = GHCN.data.clean, climatology = GHCN.data.averages)
-    saveRDS(GHCN.data.final,file=out('ghcn_data_final.Rds'))
+
+    readr::write_rds(GHCN.data.clean,
+                     path = out('ghcn_data_final.Rds'),
+                     compress = "gz")
   }
-  GHCN.data.final <- readRDS(out('ghcn_data_final.Rds'))
+  GHCN.data.final <- readr::read_rds(out('ghcn_data_final.Rds'))
   
   return(GHCN.data.final)
 }
