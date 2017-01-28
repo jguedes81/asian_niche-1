@@ -34,8 +34,8 @@ space_time_plot <- function(the_brick,
 
   # mean.all <- mean(the_brick[], na.rm = T)
   mean.spatial <- mean(the_brick, na.rm = T)
-  mean.temporal <- cellStats(the_brick, mean, na.rm = T)
-  ci.temporal <- cellStats(the_brick, quantile, probs = c(0.25,0.75), na.rm = T)
+  mean.temporal <- raster::cellStats(the_brick, mean, na.rm = T)
+  ci.temporal <- raster::cellStats(the_brick, quantile, probs = c(0.25,0.75), na.rm = T)
   
   if(!is.null(smoother)){
     mean.temporal %<>% stats::filter(filter = smoother)
@@ -44,12 +44,12 @@ space_time_plot <- function(the_brick,
 
   if(!is.null(the_brick_upper)){
     mean.spatial.upper <- mean(the_brick_upper, na.rm = T)
-    mean.temporal.upper <- cellStats(the_brick_upper, mean, na.rm = T)
+    mean.temporal.upper <- raster::cellStats(the_brick_upper, mean, na.rm = T)
   }
   
   if(!is.null(the_brick_lower)){
     mean.spatial.lower <- mean(the_brick_lower, na.rm = T)
-    mean.temporal.lower <- cellStats(the_brick_lower, mean, na.rm = T)
+    mean.temporal.lower <- raster::cellStats(the_brick_lower, mean, na.rm = T)
   }
   
   ym <- mean(c(the_brick@extent@ymax, the_brick@extent@ymin))

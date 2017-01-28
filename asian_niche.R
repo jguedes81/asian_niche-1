@@ -452,7 +452,8 @@ registerDoParallel(cl)
 gdd.recons <- foreach::foreach(n = 1:nrow(crop_GDD),
                                .packages = c("magrittr",
                                              "foreach",
-                                             "RColorBrewer"),
+                                             "RColorBrewer",
+                                             "raster"),
                                .combine = c) %dopar% {
                                  
                                  crop <- crop_GDD[n,]$crop
