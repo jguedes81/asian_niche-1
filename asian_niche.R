@@ -506,7 +506,7 @@ gdd.recons <- foreach::foreach(n = 1:nrow(crop_GDD),
                                                  zcolors = pal
                                  )
                                  
-                                 return(out.files)
+                                 return(out("PLOTS/",crop,".pdf"))
                                }
 
 # stop the cluster (will free memory)
