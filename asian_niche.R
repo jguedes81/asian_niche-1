@@ -22,7 +22,7 @@ option_list = list(
   #             help="Print extra output [default= %default]"),
   # make_option(c("-q", "--quietly"), action="store_false",
   #             dest="verbose", help="Print little output [default= %default]"),
-
+  
 ); 
 
 opt_parser = OptionParser(option_list=option_list);
@@ -200,30 +200,30 @@ GDDs <- sort(unique(crop_GDD$base_t))
 GHCN.GDD.incremented.sd <- foreach::foreach(base = GDDs) %do% {
   
   out.list <- foreach::foreach(change = sample.points,
-                          .packages = c("foreach","magrittr")) %dopar% {
-                            
-                            GHCN.GDDs <- foreach::foreach(station = GHCN.data.final$climatology, .combine = c) %do% {
-                              
-                              return(sdModulator(data.df = station,
-                                          temp.change.sd = change,
-                                          t.base = base,
-                                          t.cap = 30))
-                              
-                            }
-                            names(GHCN.GDDs) <- names(GHCN.data.final$climatology)
-                            
-                            return(dplyr::data_frame(SD_change = change,
-                                              ID = names(GHCN.GDDs),
-                                              GDD = GHCN.GDDs))
-                            
-                          }
+                               .packages = c("foreach","magrittr")) %dopar% {
+                                 
+                                 GHCN.GDDs <- foreach::foreach(station = GHCN.data.final$climatology, .combine = c) %do% {
+                                   
+                                   return(sdModulator(data.df = station,
+                                                      temp.change.sd = change,
+                                                      t.base = base,
+                                                      t.cap = 30))
+                                   
+                                 }
+                                 names(GHCN.GDDs) <- names(GHCN.data.final$climatology)
+                                 
+                                 return(dplyr::data_frame(SD_change = change,
+                                                          ID = names(GHCN.GDDs),
+                                                          GDD = GHCN.GDDs))
+                                 
+                               }
   names(out.list) <- sample.points
   
   return(out.list %>% 
-    dplyr::bind_rows() %>%
-    dplyr::left_join(GHCN.data.final$spatial %>% 
-                       dplyr::as_data_frame() %>% 
-                       dplyr::rename(x = LONGITUDE, y = LATITUDE), by = "ID"))
+           dplyr::bind_rows() %>%
+           dplyr::left_join(GHCN.data.final$spatial %>% 
+                              dplyr::as_data_frame() %>% 
+                              dplyr::rename(x = LONGITUDE, y = LATITUDE), by = "ID"))
 }
 names(GHCN.GDD.incremented.sd) <- GDDs
 
@@ -368,8 +368,8 @@ gdd.recons <- foreach::foreach(crop = crop_GDD$crop,
                                .combine = c) %dopar% {
                                  
                                  if(!file.exists(out("MODELS/",crop,"_models.rds"))) stop("Models for ",
-                                                                                                      crop,
-                                                                                                      " are missing! Aborting.")
+                                                                                          crop,
+                                                                                          " are missing! Aborting.")
                                  
                                  crop.recons <- out("RECONS/",crop,"_",c("Z_Lower","Z","Z_Upper"),".nc")
                                  if(all(file.exists(crop.recons))) return(crop.recons)
@@ -453,6 +453,9 @@ gdd.recons <- foreach::foreach(n = 1:nrow(crop_GDD),
                                .combine = c) %do% {
                                  
                                  crop <- crop_GDD[n,]$crop
+                                 
+                                 if(file.exists(out("PLOTS/",crop,".pdf")))
+                                   return(out("PLOTS/",crop,".pdf"))
                                  
                                  rast <- raster::brick(out("RECONS/",crop,"_Z.nc")) %>%
                                    magrittr::extract2(which(.@z$`Years BP` > 1000)) %>%
