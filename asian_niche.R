@@ -446,15 +446,11 @@ if(opt$clean){
 dir.create(out("PLOTS/"), showWarnings = F)
 
 # cl <- makeCluster(opt$cores, type = "PSOCK")
-cl <- makeCluster(min(opt$cores,5), type = "PSOCK")
-registerDoParallel(cl)
+# cl <- makeCluster(min(opt$cores,5), type = "PSOCK")
+# registerDoParallel(cl)
 
 gdd.recons <- foreach::foreach(n = 1:nrow(crop_GDD),
-                               .packages = c("magrittr",
-                                             "foreach",
-                                             "RColorBrewer",
-                                             "raster"),
-                               .combine = c) %dopar% {
+                               .combine = c) %do% {
                                  
                                  crop <- crop_GDD[n,]$crop
                                  
@@ -510,7 +506,7 @@ gdd.recons <- foreach::foreach(n = 1:nrow(crop_GDD),
                                }
 
 # stop the cluster (will free memory)
-stopCluster(cl)
+# stopCluster(cl)
 
 message("Plotting of niche reconstructions complete: ", capture.output(Sys.time() - time_check))
 
