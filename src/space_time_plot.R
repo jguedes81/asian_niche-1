@@ -205,7 +205,8 @@ space_time_plot <- function(the_brick,
   
   abline(h = mean.all,
          lty = 2,
-         lwd = 1.5)
+         lwd = 1.5,
+         xpd = FALSE)
   
   if(!is.null(the_brick_lower)){
     lines(y = mean.temporal.lower,
@@ -215,7 +216,8 @@ space_time_plot <- function(the_brick,
     
     abline(h = mean.all.lower,
            lty = 2,
-           lwd = 0.5)
+           lwd = 0.5,
+           xpd = FALSE)
   }
   
   if(!is.null(the_brick_upper)){
@@ -226,7 +228,8 @@ space_time_plot <- function(the_brick,
     
     abline(h = mean.all.upper,
            lty = 2,
-           lwd = 0.5)
+           lwd = 0.5,
+           xpd = FALSE)
   }
   
   axis(2,
