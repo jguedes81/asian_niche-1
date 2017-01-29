@@ -32,7 +32,7 @@ space_time_plot <- function(the_brick,
       raster:::readAll() 
   }
 
-  # mean.all <- mean(the_brick[], na.rm = T)
+  mean.all <- mean(the_brick[], na.rm = T)
   mean.spatial <- mean(the_brick, na.rm = T)
   mean.temporal <- raster::cellStats(the_brick, mean, na.rm = T)
   ci.temporal <- raster::cellStats(the_brick, quantile, probs = c(0.25,0.75), na.rm = T)
@@ -43,11 +43,13 @@ space_time_plot <- function(the_brick,
   }
 
   if(!is.null(the_brick_upper)){
+    mean.all.upper <- mean(the_brick_upper[], na.rm = T)
     mean.spatial.upper <- mean(the_brick_upper, na.rm = T)
     mean.temporal.upper <- raster::cellStats(the_brick_upper, mean, na.rm = T)
   }
   
   if(!is.null(the_brick_lower)){
+    mean.all.lower <- mean(the_brick_lower[], na.rm = T)
     mean.spatial.lower <- mean(the_brick_lower, na.rm = T)
     mean.temporal.lower <- raster::cellStats(the_brick_lower, mean, na.rm = T)
   }
@@ -201,11 +203,19 @@ space_time_plot <- function(the_brick,
         x = time,
         lwd = 1.5)
   
+  abline(h = mean.all,
+         lty = 2,
+         lwd = 1.5)
+  
   if(!is.null(the_brick_lower)){
     lines(y = mean.temporal.lower,
           x = time,
           lwd = 0.5,
           lty = 1)
+    
+    abline(h = mean.all.lower,
+           lty = 2,
+           lwd = 0.5)
   }
   
   if(!is.null(the_brick_upper)){
@@ -213,6 +223,10 @@ space_time_plot <- function(the_brick,
           x = time,
           lwd = 0.5,
           lty = 1)
+    
+    abline(h = mean.all.upper,
+           lty = 2,
+           lwd = 0.5)
   }
   
   axis(2,
