@@ -13,14 +13,16 @@
 
 ##module load gcc
 module load git
-module load r
+##module load r
 module load gdal
 module load proj
 module load geos
 module load hdf5
 module load netcdf
 
-##cd /data/cas/bocinsky/git/asian_niche
-##git pull
+cd /data/cas/bocinsky/git/asian_niche
+git pull
+
+export PATH=/home/bocinsky/packages/bin:$PATH
 
 Rscript --vanilla asian_niche.R
