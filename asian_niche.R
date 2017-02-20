@@ -1,6 +1,7 @@
 #!/usr/bin/env Rscript
 # FedData provides functions for getting GHCN data, 
 # and the `pkg_test` function for installing/loading other packages
+#install.packages("devtools")
 devtools::install_github("bocinsky/FedData")
 # Python-style argument parsing
 FedData::pkg_test("optparse")
@@ -56,6 +57,11 @@ FedData::pkg_test("raster")
 FedData::pkg_test("geomapdata")
 FedData::pkg_test("maptools")
 
+# Packages for chronometric analysis
+FedData::pkg_test("Bchron")
+FedData::pkg_test("mclust")
+FedData::pkg_test("multidplyr")
+
 # Packages for tidy code
 FedData::pkg_test("magrittr")
 FedData::pkg_test("hadley/tidyverse")
@@ -97,6 +103,7 @@ ASIA_poly <-
 calibration.years <- 1961:1990
 
 # Set this to your google maps elevation api key
+# https://developers.google.com/maps/documentation/elevation/start
 google_maps_elevation_api_key = "AIzaSyDi4YVDZPt6uH1C1vF8YRpbp1mxqsWbi5M"
 
 # Report the number of cores for parallel processing
@@ -445,34 +452,39 @@ if(opt$clean){
 }
 dir.create(out("PLOTS/"), showWarnings = F)
 
-# cl <- makeCluster(opt$cores, type = "PSOCK")
-# cl <- makeCluster(min(opt$cores,5), type = "PSOCK")
-# registerDoParallel(cl)
-
 gdd.recons <- foreach::foreach(n = 1:nrow(crop_GDD),
                                .combine = c) %do% {
                                  
                                  crop <- crop_GDD[n,]$crop
                                  
-                                 if(file.exists(out("PLOTS/",crop,".pdf")))
+                                 title <- stringr::str_c(crop_GDD[n,]$Crop_long,
+                                                         " — T_base: ",
+                                                         crop_GDD[n,]$base_t,
+                                                         "°C, Required GDD: ",
+                                                         crop_GDD[n,]$min_gdd)
+                                 
+                                 if(file.exists(out("PLOTS/",crop,".pdf")) & file.exists(out("PLOTS/",crop,".mov")))
                                    return(out("PLOTS/",crop,".pdf"))
                                  
                                  rast <- raster::brick(out("RECONS/",crop,"_Z.nc")) %>%
                                    magrittr::extract2(which(.@z$`Years BP` > 1000)) %>%
                                    raster:::readAll() %>%
-                                   magrittr::divide_by(100)
+                                   magrittr::divide_by(100) %>%
+                                   magrittr::extract2(nlayers(.):1)
                                  
                                  rast.lower <- raster::brick(out("RECONS/",crop,"_Z_Lower.nc")) %>%
                                    magrittr::extract2(which(.@z$`Years BP` > 1000)) %>%
                                    raster:::readAll() %>%
-                                   magrittr::divide_by(100)
+                                   magrittr::divide_by(100) %>%
+                                   magrittr::extract2(nlayers(.):1)
                                  
                                  rast.upper <- raster::brick(out("RECONS/",crop,"_Z_Upper.nc")) %>%
                                    magrittr::extract2(which(.@z$`Years BP` > 1000)) %>%
                                    raster:::readAll() %>%
-                                   magrittr::divide_by(100)
+                                   magrittr::divide_by(100) %>%
+                                   magrittr::extract2(nlayers(.):1)
                                  
-                                 layer.names <- rast %>%
+                                 years <- rast %>%
                                    names() %>%
                                    gsub(pattern = "X", replacement = "", x = .) %>%
                                    as.numeric()
@@ -484,36 +496,122 @@ gdd.recons <- foreach::foreach(n = 1:nrow(crop_GDD),
                                                            bias = 1.5,
                                                            space = "Lab")(50))
                                  
-                                 space_time_plot(the_brick = rast, 
-                                                 the_brick_lower = rast.lower, 
-                                                 the_brick_upper = rast.upper, 
-                                                 out_file = out("PLOTS/",crop,".pdf"),
-                                                 title = stringr::str_c(crop_GDD[1,]$Crop_long,
-                                                                        " — T_base: ",
-                                                                        crop_GDD[1,]$base_t,
-                                                                        "°C, Required GDD: ",
-                                                                        crop_GDD[1,]$min_gdd) ,
-                                                 time = layer.names,
-                                                 timelim = c(max(layer.names),min(layer.names)),
-                                                 timeaxis =  seq(from = max(layer.names)-500,
-                                                                 to = min(layer.names),
-                                                                 by = -500),
-                                                 timelab = "Years BP",
-                                                 zbreaks = seq(0,1,0.01),
-                                                 zlab = "Probability of being in niche",
-                                                 zaxis = seq(0,1,0.1),
-                                                 zcolors = pal
-                                 )
+                                 if(!file.exists(out("PLOTS/",crop,".pdf")))
+                                   space_time_plot(the_brick = rast, 
+                                                   the_brick_lower = rast.lower, 
+                                                   the_brick_upper = rast.upper, 
+                                                   out_file = out("PLOTS/",crop,".pdf"),
+                                                   title = title,
+                                                   time = years,
+                                                   timelim = c(max(years),min(years)),
+                                                   timeaxis =  seq(from = max(years)-500,
+                                                                   to = min(years),
+                                                                   by = -500),
+                                                   timelab = "Years BP",
+                                                   zbreaks = seq(0,1,0.01),
+                                                   zlab = "Probability of being in niche",
+                                                   zaxis = seq(0,1,0.1),
+                                                   zcolors = pal
+                                   )
+                                 
+                                 if(!file.exists(out("PLOTS/",crop,".mov")))
+                                   space_time_video(the_brick = rast, 
+                                                    the_brick_lower = rast.lower, 
+                                                    the_brick_upper = rast.upper, 
+                                                    out_file = out("PLOTS/",crop,".mov"),
+                                                    title = title,
+                                                    time = years,
+                                                    timelim = c(max(years),min(years)),
+                                                    timeaxis =  seq(from = max(years)-500,
+                                                                    to = min(years),
+                                                                    by = -500),
+                                                    timelab = "Years BP",
+                                                    zbreaks = seq(0,1,0.01),
+                                                    zlab = "Probability of being in niche",
+                                                    zaxis = seq(0,1,0.1),
+                                                    zcolors = pal
+                                   )
                                  
                                  return(out("PLOTS/",crop,".pdf"))
                                }
 
-# stop the cluster (will free memory)
-# stopCluster(cl)
-
 message("Plotting of niche reconstructions complete: ", capture.output(Sys.time() - time_check))
 
 ##### END PREDICT CROP NICHE THROUGH TIME #####
+
+
+
+##### BEGIN CHRONOMETRIC ANALYSIS #####
+
+## Plotting crop niche
+# create the cluster for parallel computation
+message("Beginning chronometric co-analysis")
+
+# Read in chronometric data, calibrate 14C dates, and generate age models for sites
+# using Gaussian Mixture density estimation
+densities <- readr::read_csv("./DATA/chronometric_data.csv", col_types = cols(
+  .default = col_logical(),
+  `Site identifier` = col_integer(),
+  Site = col_character(),
+  Longitude = col_double(),
+  Latitude = col_double(),
+  `Lab sample identifier` = col_character(),
+  Material = col_character(),
+  `14C age BP` = col_integer(),
+  `1-sigma uncertainty` = col_integer(),
+  `Age range (BC/AD)` = col_character(),
+  `Age range lower (BP)` = col_character(),
+  `Age range upper (BP)` = col_integer(),
+  Reference = col_character(),
+  `Crops Present` = col_character()
+)) %>%
+  tibble::as_tibble() %>%
+  dplyr::filter(!is.na(`14C age BP`)) %>%
+  dplyr::arrange(`Site identifier`) %>%
+  multidplyr::partition(`Site identifier`) %>%
+  dplyr::do(model = Bchron::BchronDensityFast(ages = .$`14C age BP`,
+                                              ageSds = .$`1-sigma uncertainty`,
+                                              calCurves = rep('intcal13',nrow(.)))) %>%
+  dplyr::collect() %>%
+  dplyr::mutate(density = model %>%
+                  magrittr::extract2(1) %$%
+                  out %>%
+                  predict(newdata = 6000:1) %>%
+                  tibble::tibble(`YearBP` = 6000:1, density = .) %>%
+                  list())
+
+# Plot any given site this way
+densities %>%
+  dplyr::filter(`Site identifier` == 10) %$%
+  density %>%
+  magrittr::extract2(1) %$%
+  plot(x = YearBP, y = density, type = 'l')
+
+# or, plot them all with
+plot(1,type = "n",ylim = c(0,0.05), xlim = c(6000,1))
+for(site in unique(densities$`Site identifier`)){
+  densities %>%
+    dplyr::filter(`Site identifier` == site) %$%
+    density %>%
+    magrittr::extract2(1) %$%
+    lines(x = YearBP,
+          y = density,
+          xlab = "Year BP",
+          ylab = "Density")
+}
+
+# Summing across all distributions yields the net distribution
+densities %$%
+  density %>%
+  sapply("[[","density") %>%
+  {rowSums(.)/ncol(.)} %>%
+  plot(x = 6000:1,
+       y = .,
+       xlim = c(6000,1),
+       type = "l",
+       xlab = "Year BP",
+       ylab = "Density")
+
 
 message("asian_niche.R complete! Total run time: ", capture.output(Sys.time() - start_time))
 
