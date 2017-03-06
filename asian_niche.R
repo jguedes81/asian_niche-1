@@ -191,8 +191,8 @@ message("Marcott et al. 2013 data preparation complete: ", capture.output(Sys.ti
 message("Modulating local climatology by Marcott et al. 2013 data")
 time_check <-  Sys.time()
 # How often to sample GDD, in z-space, for model tuning
-# Here, we sample from -25 to 25 SD, at 1 SD interval
-sample.points <- -25:25
+# Here, we sample from -20 to 20 SD, at 1 SD interval
+sample.points <- -20:20
 
 # Read in data on different crop GDD needs
 crop_GDD <- readr::read_csv("./DATA/crop_GDD_needs.csv")
@@ -546,38 +546,69 @@ message("Plotting of niche reconstructions complete: ", capture.output(Sys.time(
 # create the cluster for parallel computation
 message("Beginning chronometric co-analysis")
 
+## For loading with Google Sheets. Delete before publication.
+devtools::install_github("jennybc/googlesheets")
+library(googlesheets)
+gs_auth()
+gs_title("chronometric_data") %>%
+  gs_download(to = "./DATA/chronometric_data.csv", overwrite = TRUE)
+
 # Read in the cite/chronometric data
-chronometric_data <- readr::read_csv("./DATA/chronometric_data.csv", col_types = cols(
-  .default = col_logical(),
-  `Site identifier` = col_integer(),
-  Site = col_character(),
-  Longitude = col_double(),
-  Latitude = col_double(),
-  `Lab sample identifier` = col_character(),
-  Material = col_character(),
-  `14C age BP` = col_integer(),
-  `1-sigma uncertainty` = col_integer(),
-  `Age range (BC/AD)` = col_character(),
-  `Age range lower (BP)` = col_integer(),
-  `Age range upper (BP)` = col_integer(),
-  Reference = col_character(),
-  `Crops Present` = col_character()
-)) %>%
+chronometric_data <- readr::read_csv("./DATA/chronometric_data.csv",
+                                     col_types = cols(
+                                       .default = col_logical(),
+                                       Site = col_character(),
+                                       Period = col_integer(),
+                                       Longitude = col_double(),
+                                       Latitude = col_double(),
+                                      `Exclude?` = col_logical(),
+                                      `Notes` = col_character(),
+                                       `Lab sample identifier` = col_character(),
+                                       Material = col_character(),
+                                       `14C age BP` = col_integer(),
+                                       `1-sigma uncertainty` = col_integer(),
+                                       `Age range (BC/AD)` = col_character(),
+                                       `Age range lower (BP)` = col_integer(),
+                                       `Age range upper (BP)` = col_integer(),
+                                       Reference = col_character(),
+                                       `Crops Present` = col_character()
+                                     )) %>%
   tibble::as_tibble() %>%
+  dplyr::mutate(`Exclude?` = ifelse(is.na(`Exclude?`),FALSE,`Exclude?`)) %>%
   dplyr::filter(!is.na(Longitude),
                 !is.na(Latitude),
                 !(is.na(`14C age BP`) & is.na(`Age range lower (BP)`)),
-                !is.na(`AMS date on cereal?`))
+                !is.na(`14C date on cereal?`),
+                !`Exclude?`) %>%
+  group_by(Site,Period)
+
+# Some testing
+# chronometric_data %>%
+#   ungroup() %>%
+#   select(Site,Period,`Age range (BC/AD)`) %>%
+#   distinct() %>%
+#   group_by(Site) %>%
+#   summarise(periods = max(ifelse(is.na(Period),1,Period)), ages = n()) %>%
+#   filter(periods != ages)
+
+GaussianDensity <- function(x){
+  x %$%
+    Bchron::BchronDensityFast(ages = `14C age BP`,
+                          ageSds = `1-sigma uncertainty`,
+                          calCurves = rep('intcal13',nrow(.))) #%>%
+    # list()
+}
 
 # Calibrate 14C dates and generate age models for sites
 # using Gaussian Mixture density estimation
 densities_14C <- chronometric_data %>%
   dplyr::filter(!is.na(`14C age BP`)) %>%
-  dplyr::arrange(`Site identifier`) %>%
-  dplyr::group_by(`Site identifier`) %>%
-  dplyr::do(model = Bchron::BchronDensityFast(ages = .$`14C age BP`,
-                                              ageSds = .$`1-sigma uncertainty`,
-                                              calCurves = rep('intcal13',nrow(.))))
+  # dplyr::ungroup() %>%
+  # multidplyr::partition(Site, Period) %>%
+  dplyr::do(model =  Bchron::BchronDensityFast(ages = .$`14C age BP`,
+                                               ageSds = .$`1-sigma uncertainty`,
+                                               calCurves = rep('intcal13',nrow(.)))) #%>%
+  # dplyr::collect()
 
 
 # A function to generate flat probability density models for sites with only start and end dates
@@ -600,17 +631,24 @@ densities_other <- chronometric_data %>%
   dplyr::filter(!is.na(`Age range lower (BP)`),
                 !is.na(`Age range upper (BP)`))
 
+# densities_other %>%
+#   group_by(Site,Period) %>%
+#   summarise(n()) %>%
+#   filter(`n()`>1)
+
 densities_other %<>%
   dplyr::bind_cols({
-    mapply(FUN = FlatDensity, start_bp = densities_other$`Age range lower (BP)`, end_bp = densities_other$`Age range upper (BP)`) %>%
+    mapply(FUN = FlatDensity,
+           start_bp = densities_other$`Age range lower (BP)`,
+           end_bp = densities_other$`Age range upper (BP)`) %>%
       tibble(model = .)
     }) %>%
-  dplyr::select(`Site identifier`, model) %>%
-  dplyr::arrange(`Site identifier`)
+  dplyr::select(Site, Period, model) %>%
+  dplyr::arrange(Site,Period)
 
 # Merge the two types
 densities <- bind_rows(densities_14C,densities_other) %>%
-  dplyr::arrange(`Site identifier`)
+  dplyr::arrange(Site,Period)
 
 # A function to generate predictions from a gaussian mixture model
 get_prediction <- function(model, new_x){
@@ -638,18 +676,51 @@ get_prediction <- function(model, new_x){
 # Get the predictions
 densities %<>%
   dplyr::bind_cols({
-    sapply(densities$model,get_prediction,new_x = marcott2013$YearBP) %>% tibble(density = .)
+    sapply(X = densities$model,
+           FUN = get_prediction,
+           new_x = marcott2013$YearBP) %>% 
+      tibble(density = .)
   })
 
-# # Plot any given site this way
-# densities %>%
-#   dplyr::filter(`Site identifier` == 10) %$%
-#   density %>%
-#   magrittr::extract2(1) %>%
-#   plot(x = marcott2013$YearBP,
-#        y = .,
-#        type = 'l',
-#        xlim = c(6000,1))
+# Plot any given site this way
+multi_period_sites <- densities %>%
+  dplyr::filter(sapply(model,class) == "BchronDensityRunFast") %>%
+  group_by(Site) %>%
+  count() %>%
+  arrange(-n) %>%
+  dplyr::filter(n>1) %$%
+  Site
+
+multi_period_densities <- densities %>%
+  dplyr::filter(`Site` %in% multi_period_sites)
+
+foreach(site = unique(densities$Site)) %do% {
+  png(paste0("./OUTPUT/SITES/",site,".png"))
+  g <- densities %>%
+    dplyr::filter(`Site` == site) %$%
+    density %>%
+    magrittr::set_names(1:length(.)) %>%
+    as_tibble() %>%
+    mutate(`Years BP` = marcott2013$YearBP) %>%
+    tidyr::gather(Period, Density, num_range("",1:(ncol(.)-1))) %>%
+    ggplot2::ggplot(aes(x = `Years BP`,
+                        y = Density,
+                        colour = Period)) + 
+    ggplot2::geom_line() +
+    ggplot2::xlim(6000,0) +
+    ggplot2::ggtitle(site)
+  print(g)
+  dev.off()
+}
+
+
+  
+  
+  magrittr::extract2(1) %>%
+  plot(x = marcott2013$YearBP,
+       y = .,
+       type = 'l',
+       xlim = c(6000,1))
 
 # # or, plot them all with
 # plot(1,type = "n",ylim = c(0,0.05), xlim = c(6000,1))
