@@ -645,90 +645,48 @@ chronometric_data <- readr::read_csv("./DATA/chronometric_data.csv",
                 !`Exclude?`) %>%
   group_by(Site,Period)
 
-GaussianDensity <- function(x){
-  x %$%
-    Bchron::BchronDensityFast(ages = `14C age BP`,
-                          ageSds = `1-sigma uncertainty`,
-                          calCurves = rep('intcal13',nrow(.))) #%>%
-    # list()
-}
-
-# Calibrate 14C dates and generate age models for sites
-# using Gaussian Mixture density estimation
-densities_14C <- chronometric_data %>%
-  dplyr::filter(!is.na(`14C age BP`)) %>%
-  # dplyr::ungroup() %>%
-  # multidplyr::partition(Site, Period) %>%
-  dplyr::do(model =  Bchron::BchronDensityFast(ages = .$`14C age BP`,
-                                               ageSds = .$`1-sigma uncertainty`,
-                                               calCurves = rep('intcal13',nrow(.)))) #%>%
-  # dplyr::collect()
-
-# A function to generate flat probability density models for sites with only start and end dates
-FlatDensity <- function(start_bp,
-                        end_bp){
-  
-  out_model <- function(newdata){
-    ifelse(newdata <= start_bp & newdata >= end_bp,
-           1 / (start_bp - end_bp),
-           0)
+# A function to calibrate either 14C dates (using BchronCalibrate), or 
+# site age estimates (using a flat density estimation)
+calibrate_density <- function(x){
+  if(!is.na(x$`14C age BP`)){
+    out_calib <- Bchron::BchronCalibrate(ages = x$`14C age BP`,
+                                         ageSds = x$`1-sigma uncertainty`,
+                                         calCurves = 'intcal13') %>%
+      magrittr::extract2(1)
+    out_calib <- out_calib[c("ageGrid","densities")]
+  } else {
+    out_calib <- list() 
+    out_calib$ageGrid <- x$`Age range lower (BP)` : x$`Age range upper (BP)`
+    out_calib$densities <- rep(1 / (x$`Age range lower (BP)` - x$`Age range upper (BP)`), length(out_calib$ageGrid))
   }
-  
-  class(out_model) = "FlatDensityRun"
-  
-  return(out_model)
+  return(out_calib)
 }
 
-# Generate flat probability density models for sites with only start and end dates
-densities_other <- chronometric_data %>%
-  dplyr::filter(!is.na(`Age range lower (BP)`),
-                !is.na(`Age range upper (BP)`))
-
-densities_other %<>%
-  dplyr::bind_cols({
-    mapply(FUN = FlatDensity,
-           start_bp = densities_other$`Age range lower (BP)`,
-           end_bp = densities_other$`Age range upper (BP)`) %>%
-      tibble(model = .)
-    }) %>%
-  dplyr::select(Site, Period, model) %>%
-  dplyr::arrange(Site,Period)
-
-# Merge the two types
-densities <- bind_rows(densities_14C,densities_other) %>%
-  dplyr::arrange(Site,Period)
-
-# A function to generate predictions from a gaussian mixture model or flat model
-get_prediction <- function(model, new_x){
-  
-  if(class(model) == "FlatDensityRun"){
-    return({
-      model %>%
-        do.call(args = list(newdata = new_x))
-    })
-  }
-  
-  if(class(model) == "BchronDensityRunFast"){
-    return({model %$%
-        out %>%
-        predict(newdata = new_x)
-    })
-  }
-  
-  return("No Model Available")
-  
+# A function to extract density estimates over a vector of ages (years)
+extract_density <- function(dens, vect){
+  out_extract <- rep(0,length(vect))
+  out_extract[which(vect %in% dens$ageGrid)] <- dens$densities[which(dens$ageGrid %in% vect)]
+  return(out_extract)
 }
 
-# A function to normalize to sum to one
-normalize <- function(x){
-  x / sum(x, na.rm = T)
-}
+densities <- chronometric_data %>%
+  dplyr::select(Site,
+                Period,
+                `14C age BP`,
+                `1-sigma uncertainty`,
+                `Age range lower (BP)`,
+                `Age range upper (BP)`) %>%
+  purrr::by_row(calibrate_density, # Generate probability densities for 14C dates and age ranges
+                .to = "Density") %>%
+  dplyr::mutate(Prediction = purrr::map(Density, # Extract probabilities for Marcott years
+                                        extract_density,
+                                        vect = marcott2013$YearBP)) %>%
+  dplyr::select(Site, Period, Prediction) %>%
+  dplyr::group_by(Site, Period) %>%
+  purrr::by_slice(map,~ Reduce(x = .x, f = "+"), .to = "Density") %>% # Sum probabilities over sites and periods (as in Oxcal SUM command)
+  dplyr::mutate(Density = map(Density, "Prediction"),
+                Density = map(Density, ~ .x / sum(.x, na.rm = T))) # re-normalize to 1
 
-# Get the predictions
-densities %<>%
-  dplyr::mutate(density = map(model, get_prediction, new_x = marcott2013$YearBP),
-                density = map(density, ~ .x * 20),
-                density = map(density, normalize))
 
 # Plot each site's probablility distribution
 foreach(site = unique(densities$Site)) %do% {
@@ -736,7 +694,7 @@ foreach(site = unique(densities$Site)) %do% {
     png(out("SITES/",site,".png"))
     g <- densities %>%
       dplyr::filter(`Site` == site) %$%
-      density %>%
+      Density %>%
       magrittr::set_names(1:length(.)) %>%
       as_tibble() %>%
       mutate(`Years BP` = marcott2013$YearBP) %>%
@@ -757,7 +715,7 @@ foreach(site = unique(densities$Site)) %do% {
 # for(site in unique(densities$`Site`)){
 #   densities %>%
 #     dplyr::filter(`Site` == site) %$%
-#     density %>%
+#     Density %>%
 #     magrittr::extract2(1) %>%
 #     lines(x = marcott2013$YearBP,
 #           y = .,
@@ -767,7 +725,7 @@ foreach(site = unique(densities$Site)) %do% {
 
 # # Summing across all distributions yields the net distribution
 # densities %$%
-#   density %>%
+#   Density %>%
 #   do.call(cbind,.) %>%
 #   {rowSums(.)/ncol(.)} %>%
 #   magrittr::multiply_by(20) %>%
@@ -777,22 +735,6 @@ foreach(site = unique(densities$Site)) %do% {
 #        type = "l",
 #        xlab = "Year BP",
 #        ylab = "Density")
-
-# A function to extract the 95% confidence interval of a distribution
-get_CI <- function(dens){
-  dens %<>%
-    cumsum() %>%
-    magrittr::divide_by(sum(dens, na.rm = T))
-  lower <- which(dens >= 0.025)[1] 
-  upper <- which(dens >= 0.975)[1]
-  return(list(lower = lower, upper = upper))
-}
-
-densities %<>%
-  mutate(`Lower CI` = map(density,get_CI) %>%
-           map_int("lower"),
-         `Upper CI` = map(density,get_CI) %>%
-           map_int("upper"))
 
 # Create a spatial object of the sites
 sites <- chronometric_data %>%
@@ -811,7 +753,9 @@ sites <- chronometric_data %>%
                 Buckwheat,
                 Rice) %>%
   dplyr::ungroup() %>%
-  dplyr::distinct() %>%
+  dplyr::arrange(Millet, Wheat, Barley, Buckwheat, Rice) %>%
+  dplyr::distinct(Site, Period, .keep_all = TRUE) %>%
+  dplyr::arrange(Site, Period) %>%
   sf::st_as_sf(coords = c("Longitude", "Latitude")) %>%
   sf::st_set_crs("+proj=longlat")
 
@@ -819,29 +763,116 @@ niches <- foreach::foreach(crop = c("Millet","Wheat","Barley","Buckwheat","Rice"
   crop_rast <- raster::brick(out("RECONS/All_",crop,"_Z.nc")) %>%
     raster:::readAll() %>%
     raster::extract(sites %>%
-                      filter_(crop) %>%
                       sf::st_as_sf() %>% 
                       as("Spatial")) %>%
     split(row(.))
   
   crop_out <- sites %>%
-    dplyr::filter_(crop) %>%
     dplyr::select_("Site",
-                   "Period") %>%
+                   "Period",
+                   crop) %>%
     dplyr::mutate(crop = crop_rast)
-  names(crop_out) <- c("Site",
-                  "Period",
-                  crop)
+  
+  crop_out[["crop"]][is.na(crop_out[[crop]])] <- lapply(1:length(crop_out[["crop"]][is.na(crop_out[[crop]])]),
+                                                        function(x) return(NULL))
+  crop_out %<>%
+    dplyr::select(Site,
+                   Period,
+                   crop) %>%
+    magrittr::set_names(c("Site",
+                    "Period",
+                    crop))
+  
   return(crop_out)
 } %>%
   purrr::reduce(dplyr::full_join, by = c("Site","Period")) %>%
   dplyr::arrange(Site, Period)
 
+# A function to extract the 95% confidence interval of a distribution
+get_CI <- function(dens){
+  dens[is.na(dens)] <- 0
+  cum_dens <- dens %>%
+    cumsum() %>%
+    magrittr::divide_by(sum(dens, na.rm = T))
+  lower <- which(cum_dens >= 0.025)[1]
+  mid <- which(cum_dens >= 0.5)[1]
+  upper <- which(cum_dens >= 0.975)[1]
+  return(list(Density = dens, Median = mid, CI = c(lower = lower, upper = upper)))
+}
+
+# A function to calculate local niches
+local_niche <- function(niche, dens){
+  if(is.na(dens$CI[["lower"]]) | is.na(dens$CI[["upper"]])) return(NULL)
+  out_niche <- list()
+  out_niche$Niche <- rep(NA, length(niche))
+  out_niche$Niche[dens$CI[["lower"]]:dens$CI[["upper"]]] <- niche[dens$CI[["lower"]]:dens$CI[["upper"]]]
+  out_niche$Niche <- out_niche$Niche / 100 # onvert to probability
+  out_niche$Median <- quantile(out_niche$Niche, probs = 0.5, na.rm = TRUE)
+  out_niche$CI <- c(quantile(out_niche$Niche, probs = 0.025, na.rm = TRUE),
+                    quantile(out_niche$Niche, probs = 0.975, na.rm = TRUE))
+  names(out_niche$CI) <- c("lower","upper")
+  return(out_niche)
+}
+
+# Get the "Local" niche densities, by multiplying the site occupation probability densities
+# by the crop niche probabilities (summing will get the average)
+# Join the niche and density tables
 niche_densities <- niches %>%
   right_join(densities %>%
-               dplyr::select(Site, Period, density))
-  dplyr::select()
+               dplyr::select(Site, Period, Density)) %>%
+  dplyr::select(Site, Period, Density, Millet:Rice) %>%
+  # Get local densities
+  dplyr::mutate(Density = purrr::map(Density, get_CI),
+                Millet = purrr::map2(Millet, Density, local_niche),
+                Wheat = purrr::map2(Wheat, Density, local_niche),
+                Barley = purrr::map2(Barley, Density, local_niche),
+                Buckwheat = purrr::map2(Buckwheat, Density, local_niche),
+                Rice = purrr::map2(Rice, Density, local_niche)
+  ) %>%
+  dplyr::filter(!sapply(Millet, is.null))
 
+# Create biplots of each crop/site
+dir.create(out("GRAPHS"), showWarnings = FALSE, recursive = TRUE)
+foreach::foreach(crop = c("Millet","Wheat","Barley","Buckwheat","Rice")) %do% {
+  pdf(out("GRAPHS/",crop,"_crossplot.pdf"))
+  p <- niche_densities %>%
+    dplyr::select_("Site",
+                   "Period",
+                   "Density",
+                   crop) %>%
+    magrittr::set_names(c("Site",
+                          "Period",
+                          "Density",
+                          "Crop")) %>%
+    dplyr::mutate(Density_Median = marcott2013$YearBP[purrr::map_int(Density, "Median")],
+                  Density_Lower = marcott2013$YearBP[purrr::map(Density, "CI") %>% 
+                                                       purrr::map_dbl("lower")],
+                  Density_Upper = marcott2013$YearBP[purrr::map(Density, "CI") %>% 
+                                                       purrr::map_dbl("upper")],
+                  Crop_Median = purrr::map_dbl(Crop, "Median"),
+                  Crop_Lower = purrr::map(Crop, "CI") %>% 
+                    purrr::map_dbl("lower"),
+                  Crop_Upper = purrr::map(Crop, "CI") %>% 
+                    purrr::map_dbl("upper")) %>%
+    ggplot2::ggplot(aes(x = Density_Median, y = Crop_Median, label = Site)) + 
+    geom_point(na.rm = TRUE) + 
+    geom_errorbarh(aes(xmin = Density_Lower,
+                       xmax = Density_Upper),
+                   na.rm = TRUE) +
+    geom_errorbar(aes(ymin = Crop_Lower,
+                      ymax = Crop_Upper),
+                  na.rm = TRUE) + 
+    xlim(6000,0) +
+    ylim(0,1) +
+    xlab("Years BP") +
+    ylab(stringr::str_c("Probability of Being in the ",crop," Niche"))
+  print(p)
+  dev.off()
+  
+  plotly::ggplotly(tooltip = c("Density_Median","Density_Lower","Density_Upper","Crop_Median","Crop_Lower","Crop_Upper"))
+}
+  
+  
 ##### END CHRONOMETRIC ANALYSIS #####
 
 message("asian_niche.R complete! Total run time: ", capture.output(Sys.time() - start_time))
