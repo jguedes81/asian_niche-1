@@ -2,7 +2,8 @@
 # FedData provides functions for getting GHCN data, 
 # and the `pkg_test` function for installing/loading other packages
 #install.packages("devtools")
-devtools::install_github("bocinsky/FedData")
+# devtools::install_github("bocinsky/FedData")
+devtools::install_cran("FedData")
 # Python-style argument parsing
 FedData::pkg_test("optparse")
 
@@ -51,6 +52,7 @@ FedData::pkg_test("rgbif")
 FedData::pkg_test("fields")
 
 # Packages for spatial processing
+FedData::pkg_test("sf")
 FedData::pkg_test("rgdal")
 FedData::pkg_test("ncdf4")
 FedData::pkg_test("raster")
@@ -410,17 +412,17 @@ gdd.recons <- foreach::foreach(crop = crop_GDD$crop,
                                                                    raster::brick() %>%
                                                                    raster::setZ(marcott2013$YearBP, name="Years BP") %>%
                                                                    raster::writeRaster(out("RECONS/",crop,"_",Zs,".nc"),
-                                                                                       format="CDF",
+                                                                                       format = "CDF",
                                                                                        datatype = "INT1S",
-                                                                                       varname="niche_probability",
-                                                                                       varunit="unitless", 
-                                                                                       longname="Probability of being in the crop niche x 100",
-                                                                                       xname="Longitude",
-                                                                                       yname="Latitude",
-                                                                                       zname="Years BP",
-                                                                                       zunit="Years BP",
-                                                                                       compression=9,
-                                                                                       overwrite=TRUE)
+                                                                                       varname = "niche_probability",
+                                                                                       varunit = "unitless", 
+                                                                                       longname = "Probability of being in the crop niche x 100",
+                                                                                       xname = "Longitude",
+                                                                                       yname = "Latitude",
+                                                                                       zname = "Years BP",
+                                                                                       zunit = "Years BP",
+                                                                                       compression = 9,
+                                                                                       overwrite = TRUE)
                                                                  
                                                                  rm(out_models)
                                                                  gc();gc()
@@ -437,6 +439,67 @@ stopCluster(cl)
 message("Generation of niche reconstructions complete: ", capture.output(Sys.time() - time_check))
 
 ##### END PREDICT CROP NICHE THROUGH TIME #####
+
+
+
+##### BEGIN COMBINE LIKE CROP NICHES #####
+## Combining crop niches from similar crops by taking an arithmatic mean
+message("Combining like crop niches")
+time_check <-  Sys.time()
+
+combine_varieties <- function(x, file_tail){
+  if(file.exists(out("RECONS/All_",x$crop_type[[1]],"_",file_tail,".nc"))) return(NULL)
+  n_crops <- length(x$crop)
+  foreach::foreach(crop = x$crop) %do% {
+    out("RECONS/",crop,"_",file_tail,".nc") %>%
+      raster::brick() %>%
+      raster::getValues()
+  } %>%
+    Reduce(f = "+", x = .) %>%
+    magrittr::divide_by(n_crops) %>%
+    round() %>%
+    raster::setValues(raster::brick(out("RECONS/",x$crop[[1]],"_",file_tail,".nc")), .) %>%
+    raster::writeRaster(out("RECONS/All_",x$crop_type[[1]],"_",file_tail,".nc"),
+                        format = "CDF",
+                        datatype = "INT1S",
+                        varname = "niche_probability",
+                        varunit = "unitless", 
+                        longname = "Probability of being in the crop niche x 100",
+                        xname = "Longitude",
+                        yname = "Latitude",
+                        zname = "Years BP",
+                        zunit = "Years BP",
+                        compression = 9,
+                        overwrite = TRUE)
+  return(NULL)
+}
+
+# create the cluster for parallel computation
+cl <- makeCluster(min(opt$cores,
+                      crop_GDD %$%
+                        crop_type %>%
+                        unique() %>%
+                        length()),
+                  type = "PSOCK")
+registerDoParallel(cl)
+
+# Get mean niche for Marcott predictions
+foreach::foreach(crop = crop_GDD %>%
+  split(as.factor(crop_GDD$crop_type)),
+  .packages = c("magrittr",
+                "foreach"),
+  .combine = c) %dopar% {
+    combine_varieties(crop, file_tail = "Z") # Get mean niche for Marcott
+    combine_varieties(crop, file_tail = "Z_Upper") # Get mean niche for Marcott upper CI
+    combine_varieties(crop, file_tail = "Z_Lower") # Get mean niche for Marcott lower CI
+  }
+
+# stop the cluster (will free memory)
+stopCluster(cl)
+
+message("Combining like crop niches complete: ", capture.output(Sys.time() - time_check))
+
+##### END COMBINE LIKE CROP NICHES #####
 
 
 
@@ -541,17 +604,17 @@ message("Plotting of niche reconstructions complete: ", capture.output(Sys.time(
 
 
 ##### BEGIN CHRONOMETRIC ANALYSIS #####
-
-## Plotting crop niche
-# create the cluster for parallel computation
 message("Beginning chronometric co-analysis")
 
 ## For loading with Google Sheets. Delete before publication.
+#### TODO: REMOVE
 devtools::install_github("jennybc/googlesheets")
 library(googlesheets)
 gs_auth()
 gs_title("chronometric_data") %>%
-  gs_download(to = "./DATA/chronometric_data.csv", overwrite = TRUE)
+  gs_download(to = "./DATA/chronometric_data.csv",
+              overwrite = TRUE)
+####
 
 # Read in the cite/chronometric data
 chronometric_data <- readr::read_csv("./DATA/chronometric_data.csv",
@@ -582,15 +645,6 @@ chronometric_data <- readr::read_csv("./DATA/chronometric_data.csv",
                 !`Exclude?`) %>%
   group_by(Site,Period)
 
-# Some testing
-# chronometric_data %>%
-#   ungroup() %>%
-#   select(Site,Period,`Age range (BC/AD)`) %>%
-#   distinct() %>%
-#   group_by(Site) %>%
-#   summarise(periods = max(ifelse(is.na(Period),1,Period)), ages = n()) %>%
-#   filter(periods != ages)
-
 GaussianDensity <- function(x){
   x %$%
     Bchron::BchronDensityFast(ages = `14C age BP`,
@@ -609,7 +663,6 @@ densities_14C <- chronometric_data %>%
                                                ageSds = .$`1-sigma uncertainty`,
                                                calCurves = rep('intcal13',nrow(.)))) #%>%
   # dplyr::collect()
-
 
 # A function to generate flat probability density models for sites with only start and end dates
 FlatDensity <- function(start_bp,
@@ -631,11 +684,6 @@ densities_other <- chronometric_data %>%
   dplyr::filter(!is.na(`Age range lower (BP)`),
                 !is.na(`Age range upper (BP)`))
 
-# densities_other %>%
-#   group_by(Site,Period) %>%
-#   summarise(n()) %>%
-#   filter(`n()`>1)
-
 densities_other %<>%
   dplyr::bind_cols({
     mapply(FUN = FlatDensity,
@@ -650,22 +698,20 @@ densities_other %<>%
 densities <- bind_rows(densities_14C,densities_other) %>%
   dplyr::arrange(Site,Period)
 
-# A function to generate predictions from a gaussian mixture model
+# A function to generate predictions from a gaussian mixture model or flat model
 get_prediction <- function(model, new_x){
   
   if(class(model) == "FlatDensityRun"){
     return({
       model %>%
-        do.call(args = list(newdata = new_x)) %>%
-        list()
+        do.call(args = list(newdata = new_x))
     })
   }
   
   if(class(model) == "BchronDensityRunFast"){
     return({model %$%
         out %>%
-        predict(newdata = new_x) %>%
-        list()
+        predict(newdata = new_x)
     })
   }
   
@@ -673,60 +719,44 @@ get_prediction <- function(model, new_x){
   
 }
 
-# Get the predictions
-densities %<>%
-  dplyr::bind_cols({
-    sapply(X = densities$model,
-           FUN = get_prediction,
-           new_x = marcott2013$YearBP) %>% 
-      tibble(density = .)
-  })
-
-# Plot any given site this way
-multi_period_sites <- densities %>%
-  dplyr::filter(sapply(model,class) == "BchronDensityRunFast") %>%
-  group_by(Site) %>%
-  count() %>%
-  arrange(-n) %>%
-  dplyr::filter(n>1) %$%
-  Site
-
-multi_period_densities <- densities %>%
-  dplyr::filter(`Site` %in% multi_period_sites)
-
-foreach(site = unique(densities$Site)) %do% {
-  png(paste0("./OUTPUT/SITES/",site,".png"))
-  g <- densities %>%
-    dplyr::filter(`Site` == site) %$%
-    density %>%
-    magrittr::set_names(1:length(.)) %>%
-    as_tibble() %>%
-    mutate(`Years BP` = marcott2013$YearBP) %>%
-    tidyr::gather(Period, Density, num_range("",1:(ncol(.)-1))) %>%
-    ggplot2::ggplot(aes(x = `Years BP`,
-                        y = Density,
-                        colour = Period)) + 
-    ggplot2::geom_line() +
-    ggplot2::xlim(6000,0) +
-    ggplot2::ggtitle(site)
-  print(g)
-  dev.off()
+# A function to normalize to sum to one
+normalize <- function(x){
+  x / sum(x, na.rm = T)
 }
 
+# Get the predictions
+densities %<>%
+  dplyr::mutate(density = map(model, get_prediction, new_x = marcott2013$YearBP),
+                density = map(density, ~ .x * 20),
+                density = map(density, normalize))
 
-  
-  
-  magrittr::extract2(1) %>%
-  plot(x = marcott2013$YearBP,
-       y = .,
-       type = 'l',
-       xlim = c(6000,1))
+# Plot each site's probablility distribution
+foreach(site = unique(densities$Site)) %do% {
+  if(!file.exists(out("SITES/",site,".png"))){
+    png(out("SITES/",site,".png"))
+    g <- densities %>%
+      dplyr::filter(`Site` == site) %$%
+      density %>%
+      magrittr::set_names(1:length(.)) %>%
+      as_tibble() %>%
+      mutate(`Years BP` = marcott2013$YearBP) %>%
+      tidyr::gather(Period, Density, num_range("",1:(ncol(.)-1))) %>%
+      ggplot2::ggplot(aes(x = `Years BP`,
+                          y = Density,
+                          colour = Period)) + 
+      ggplot2::geom_line() +
+      ggplot2::xlim(6000,0) +
+      ggplot2::ggtitle(site)
+    print(g)
+    dev.off()
+  }
+}
 
-# # or, plot them all with
+# # or, plot them all together with
 # plot(1,type = "n",ylim = c(0,0.05), xlim = c(6000,1))
-# for(site in unique(densities$`Site identifier`)){
+# for(site in unique(densities$`Site`)){
 #   densities %>%
-#     dplyr::filter(`Site identifier` == site) %$%
+#     dplyr::filter(`Site` == site) %$%
 #     density %>%
 #     magrittr::extract2(1) %>%
 #     lines(x = marcott2013$YearBP,
@@ -748,58 +778,69 @@ foreach(site = unique(densities$Site)) %do% {
 #        xlab = "Year BP",
 #        ylab = "Density")
 
+# A function to extract the 95% confidence interval of a distribution
+get_CI <- function(dens){
+  dens %<>%
+    cumsum() %>%
+    magrittr::divide_by(sum(dens, na.rm = T))
+  lower <- which(dens >= 0.025)[1] 
+  upper <- which(dens >= 0.975)[1]
+  return(list(lower = lower, upper = upper))
+}
 
-# Create a SpatialPointsDataFrame of the sites
+densities %<>%
+  mutate(`Lower CI` = map(density,get_CI) %>%
+           map_int("lower"),
+         `Upper CI` = map(density,get_CI) %>%
+           map_int("upper"))
+
+# Create a spatial object of the sites
 sites <- chronometric_data %>%
-  dplyr::select(`Site identifier`,
-         Site,
-         Longitude,
-         Latitude,
-         Wheat:Pennesitum) %>%
-  dplyr::distinct()
+  mutate(Millet = any(`Foxtail millet`,`Broomcorn millet`,`Millet (unidentified)`),
+         Wheat = any(Wheat),
+         Barley = any(Barley),
+         Buckwheat = any(Buckwheat),
+         Rice = any(Rice, `Rice (wild)`)) %>%
+  dplyr::select(Site,
+                Period,
+                Longitude,
+                Latitude,
+                Millet,
+                Wheat,
+                Barley,
+                Buckwheat,
+                Rice) %>%
+  dplyr::ungroup() %>%
+  dplyr::distinct() %>%
+  sf::st_as_sf(coords = c("Longitude", "Latitude")) %>%
+  sf::st_set_crs("+proj=longlat")
 
-coordinates(sites) <- ~Longitude+Latitude
-projection(sites) <- "+proj=longlat"
+niches <- foreach::foreach(crop = c("Millet","Wheat","Barley","Buckwheat","Rice")) %do% {
+  crop_rast <- raster::brick(out("RECONS/All_",crop,"_Z.nc")) %>%
+    raster:::readAll() %>%
+    raster::extract(sites %>%
+                      filter_(crop) %>%
+                      sf::st_as_sf() %>% 
+                      as("Spatial")) %>%
+    split(row(.))
+  
+  crop_out <- sites %>%
+    dplyr::filter_(crop) %>%
+    dplyr::select_("Site",
+                   "Period") %>%
+    dplyr::mutate(crop = crop_rast)
+  names(crop_out) <- c("Site",
+                  "Period",
+                  crop)
+  return(crop_out)
+} %>%
+  purrr::reduce(dplyr::full_join, by = c("Site","Period")) %>%
+  dplyr::arrange(Site, Period)
 
-
-rast <- raster::brick(out("RECONS/",crop,"_Z.nc")) %>%
-  raster:::readAll() %>%
-  magrittr::divide_by(100) %>%
-  magrittr::extract2(nlayers(.):1)
-
-sites %<>% crop(rast)
-
-sites@data %<>% 
-  tibble::as_tibble() %>%
-  dplyr::bind_cols({
-    rast %>%
-      raster::extract(sites) %>%
-      t() %>%
-      as.data.frame() %>%
-      as.list() %>%
-      tibble(niche = .)
-  })
-
-
-
-
-plot(rast[[1]])
-plot(sites, add = T)
-
-test.density <- densities$density[[1]] %>%
-  cumsum() %>%
-  magrittr::divide_by(sum(densities$density[[1]], na.rm = T))
-which(test.density >= 0.05)[1] 
-which(test.density >= 0.95)[1]
-
-test.niche <- 20 * densities$density[[1]] * sites@data$niche[[1]]
-test.niche %<>%
-  cumsum() %>%
-  magrittr::divide_by(sum(test.niche, na.rm = T)) 
-which(test.niche >= 0.05)[1]
-which(test.niche >= 0.95)[1]
-
-sum(20 * densities$density[[1]] * sites@data$niche[[1]], na.rm = T)
+niche_densities <- niches %>%
+  right_join(densities %>%
+               dplyr::select(Site, Period, density))
+  dplyr::select()
 
 ##### END CHRONOMETRIC ANALYSIS #####
 
