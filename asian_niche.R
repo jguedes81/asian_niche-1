@@ -69,6 +69,8 @@ FedData::pkg_test("hadley/tidyverse")
 
 # Plotting
 FedData::pkg_test("RColorBrewer")
+FedData::pkg_test("plotly")
+FedData::pkg_test("htmlwidgets")
 
 # Load all functions
 all.functions <- lapply(list.files("./src",full.names=T),
@@ -89,9 +91,16 @@ if(opt$clean) unlink(opt$output_dir,
 dir.create(opt$output_dir,
            showWarnings = FALSE,
            recursive = TRUE)
+
 # a function that builds output paths
 out <- function(...){
   stringr::str_c(opt$output_dir,...)
+}
+
+# A function to set an objects class
+set_class <- function(x, classes){
+  class(x) <- classes
+  return(x)
 }
 
 #Define the study region
@@ -762,12 +771,12 @@ sites <- chronometric_data %>%
 niches <- foreach::foreach(crop = c("Millet","Wheat","Barley","Buckwheat","Rice")) %do% {
   crop_rast <- raster::brick(out("RECONS/All_",crop,"_Z.nc")) %>%
     raster:::readAll() %>%
-    raster::extract(sites %>%
-                      sf::st_as_sf() %>% 
+    raster::extract(sites %>% 
                       as("Spatial")) %>%
     split(row(.))
-  
+
   crop_out <- sites %>%
+    set_class(c("tbl_df", "tbl", "data.frame")) %>%
     dplyr::select_("Site",
                    "Period",
                    crop) %>%
@@ -832,7 +841,7 @@ niche_densities <- niches %>%
   dplyr::filter(!sapply(Millet, is.null))
 
 # Create biplots of each crop/site
-dir.create(out("GRAPHS"), showWarnings = FALSE, recursive = TRUE)
+dir.create(out("GRAPHS/libs"), showWarnings = FALSE, recursive = TRUE)
 foreach::foreach(crop = c("Millet","Wheat","Barley","Buckwheat","Rice")) %do% {
   pdf(out("GRAPHS/",crop,"_crossplot.pdf"))
   p <- niche_densities %>%
@@ -869,7 +878,9 @@ foreach::foreach(crop = c("Millet","Wheat","Barley","Buckwheat","Rice")) %do% {
   print(p)
   dev.off()
   
-  plotly::ggplotly(tooltip = c("Density_Median","Density_Lower","Density_Upper","Crop_Median","Crop_Lower","Crop_Upper"))
+  pp <-plotly::ggplotly(tooltip = c("Site"))
+  htmlwidgets::saveWidget(widget = as_widget(pp),
+                          file = paste0(crop,"_crossplot.html"))
 }
   
   
