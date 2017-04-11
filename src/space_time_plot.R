@@ -17,7 +17,9 @@ space_time_plot <- function(the_brick,
                             graph_height = 1.5,
                             margin = 0.1,
                             pt_size = 8,
-                            smooth = FALSE){
+                            smooth = FALSE,
+                            extra_plot_fun = NULL,
+                            extra_legend_fun = NULL){
   
   if(isTRUE(smooth)){
     smoother <- dnorm(seq(-10,10,1), sd=5)
@@ -106,7 +108,7 @@ space_time_plot <- function(the_brick,
   
   raster::contour(mean.spatial,
                   maxpixels=ncell(mean.spatial),
-                  levels = 0.5,
+                  levels = 0.75,
                   drawlabels = FALSE,
                   col = "white",
                   lwd = 1.25,
@@ -115,7 +117,7 @@ space_time_plot <- function(the_brick,
   if(!is.null(the_brick_upper)){
     raster::contour(mean.spatial.upper,
                     maxpixels=ncell(mean.spatial.upper),
-                    levels = 0.5,
+                    levels = 0.75,
                     drawlabels = FALSE,
                     col = "white",
                     lwd = 0.75,
@@ -126,7 +128,7 @@ space_time_plot <- function(the_brick,
   if(!is.null(the_brick_lower)){
     raster::contour(mean.spatial.lower,
                     maxpixels=ncell(mean.spatial.lower),
-                    levels = 0.5,
+                    levels = 0.75,
                     drawlabels = FALSE,
                     col = "white",
                     lwd = 0.75,
@@ -134,6 +136,10 @@ space_time_plot <- function(the_brick,
                     add = T)
   }
   
+  if(!is.null(extra_plot_fun)){
+    extra_plot_fun()
+  }
+
   par(mai=c((margin * 2),
             margin,
             (margin * 3) + plot_height,
@@ -158,7 +164,7 @@ space_time_plot <- function(the_brick,
        xleft=0.15,
        xright=0.35,
        xpd=T)
-  abline(h=0.5,
+  abline(h=0.75,
          col = "white")
   text(x = 0,
        y=mean(zbreaks),

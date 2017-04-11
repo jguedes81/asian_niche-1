@@ -16,7 +16,9 @@ space_time_video <- function(the_brick,
                             margin = 0.1,
                             pt_size = 8,
                             smooth = FALSE,
-                            length = 120 # Length in seconds of video
+                            length = 120, # Length in seconds of video
+                            extra_plot_fun = NULL,
+                            extra_legend_fun = NULL
                             ){
   
   out_dir <- tempfile()
@@ -75,7 +77,7 @@ space_time_video <- function(the_brick,
 
   colors <- colorRampPalette(zcolors)(length(zbreaks))
   
-  foreach::foreach(layer = 1:nlayers(the_brick)) %do% {
+  for(layer in 1:nlayers(the_brick)) {
     
     png(filename = stringr::str_c(out_dir,'/image',stringi::stri_pad_left(layer,width=4,pad=0),'.png'),
         width = fig_width,
@@ -111,18 +113,20 @@ space_time_video <- function(the_brick,
          colNA="gray90",
          useRaster=TRUE, legend=FALSE)
     
-    raster::contour(the_brick[[layer]],
-                    maxpixels=ncell(the_brick),
-                    levels = 0.5,
-                    drawlabels = FALSE,
-                    col = "white",
-                    lwd = 1.25,
-                    add = T)
-    
-    if(!is.null(the_brick_upper)){
+    if((min(the_brick[[layer]][], na.rm = TRUE) != max(the_brick[[layer]][], na.rm = TRUE))){
+      raster::contour(the_brick[[layer]],
+                      maxpixels=ncell(the_brick),
+                      levels = 0.75,
+                      drawlabels = FALSE,
+                      col = "white",
+                      lwd = 1.25,
+                      add = T)
+    }
+
+    if(!is.null(the_brick_upper) & (min(the_brick_upper[[layer]][], na.rm = TRUE) != max(the_brick_upper[[layer]][], na.rm = TRUE))){
       raster::contour(the_brick_upper[[layer]],
                       maxpixels=ncell(the_brick_upper),
-                      levels = 0.5,
+                      levels = 0.75,
                       drawlabels = FALSE,
                       col = "white",
                       lwd = 0.75,
@@ -130,15 +134,23 @@ space_time_video <- function(the_brick,
                       add = T)
     }
     
-    if(!is.null(the_brick_lower)){
+    if(!is.null(the_brick_lower) & (min(the_brick_lower[[layer]][], na.rm = TRUE) != max(the_brick_lower[[layer]][], na.rm = TRUE))){
       raster::contour(the_brick_lower[[layer]],
                       maxpixels=ncell(the_brick_lower),
-                      levels = 0.5,
+                      levels = 0.75,
                       drawlabels = FALSE,
                       col = "white",
                       lwd = 0.75,
                       lty = 1,
                       add = T)
+    }
+    
+    if(!is.null(extra_plot_fun)){
+      extra_plot_fun(years = time[[layer]])
+    }
+    
+    if(!is.null(extra_legend_fun)){
+      extra_legend_fun()
     }
     
     par(mai=c((margin * 2),
@@ -167,7 +179,7 @@ space_time_video <- function(the_brick,
          xright=0.35,
          xpd=T)
     
-    abline(h=0.5,
+    abline(h=0.75,
            col = "white")
     
     text(x = 0,

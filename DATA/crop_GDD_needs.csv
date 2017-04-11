@@ -1,1 +1,16 @@
-crop_long,crop,crop_type,base_t,min_gdd"Foxtail millet, 110–125 day",foxtail_millet_110-125day,Millet,0,2000"Foxtail millet, 100–130 day",foxtail_millet_100-130day,Millet,0,3000"Foxtail millet, 90 day",foxtail_millet_90day,Millet,0,4000Broomcorn millet,broomcorn_millet_10,Millet,10,826Broomcorn millet,broomcorn_millet_55,Millet,5.5,2082Winter wheat,winter_wheat,Wheat,0,1907Spring wheat,spring_wheat,Wheat,0,1869Spring barley,spring_barley,Barley,0,2084Winter barley,winter_barley,Barley,0,1966Buckwheat,buckwheat,Buckwheat,5,1200Alaskan barley,Barley_Alaska,Northern Barley,0,1220Juskiw's Barley (Alberta),Barley_Juskiw,Northern Barley,0,1500"Rice, tropical japonica",Rice_tropical_japonica,Rice,10,2900"Rice, temperate japonica",Rice_temperate_japonica,Rice,10,2500"Rice, indica",Rice_indica,Rice,10,2400
+cultivar_long,cultivar,crop_long,crop,t_base,min_gdd
+"Foxtail millet, 110–125 day",foxtail_millet_110-125day,Foxtail millets,foxtail_millets,0,2000
+"Foxtail millet, 100–130 day",foxtail_millet_100-130day,Foxtail millets,foxtail_millets,0,3000
+"Foxtail millet, 90 day",foxtail_millet_90day,Foxtail millets,foxtail_millets,0,4000
+Broomcorn millet,broomcorn_millet_10,Broomcorn millets,broomcorn_millets,10,826
+Broomcorn millet,broomcorn_millet_55,Broomcorn millets,broomcorn_millets,5.5,2082
+Winter wheat,winter_wheat,Wheats,wheats,0,1907
+Spring wheat,spring_wheat,Wheats,wheats,0,1869
+Spring barley,spring_barley,Barleys,barleys,0,2084
+Winter barley,winter_barley,Barleys,barleys,0,1966
+Buckwheat,buckwheat,Buckwheat,buckwheat,5,1200
+Alaskan barley,barley_alaska,High-latitude barleys,high_latitude_barleys,0,1220
+Juskiw's Barley (Alberta),barley_juskiw,High-latitude barleys,high_latitude_barleys,0,1500
+"Rice, tropical japonica",rice_tropical_japonica,"Rice, tropical japonica",rice_tropical_japonica,10,2900
+"Rice, temperate japonica",rice_temperate_japonica,"Rice, temperate japonica",rice_temperate_japonica,10,2500
+"Rice, indica",rice_indica,"Rice, indica",rice_indica,10,2400

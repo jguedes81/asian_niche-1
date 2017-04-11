@@ -1,9 +1,10 @@
 #!/usr/bin/env Rscript
+
 # FedData provides functions for getting GHCN data, 
 # and the `pkg_test` function for installing/loading other packages
 #install.packages("devtools")
 # devtools::install_github("bocinsky/FedData")
-devtools::install_cran("FedData")
+# devtools::install_cran("FedData")
 # Python-style argument parsing
 FedData::pkg_test("optparse")
 
@@ -14,20 +15,22 @@ slurm_cores <- as.numeric(Sys.getenv("SLURM_NTASKS_PER_NODE"))
 # Use optparse for Python-style argument parsing
 # Define a set of options; only output file and force_redo for now
 option_list = list(
-  make_option(c("-o", "--output_dir"), type="character", default="./OUTPUT/", 
-              help="Output directory [default = %default]", metavar = "character"),
-  make_option(c("-n", "--cores"), type="numeric", default=ifelse(is.na(slurm_cores), 2, slurm_cores),
-              help="Number of cores for multicore run [default = %default]"),
-  make_option(c("-c", "--clean"), action="store_true", default=FALSE,
-              help="Delete output directory and re-run all analyses? [default= %default]")
-  # make_option(c("-v", "--verbose"), action="store_true", default=TRUE,
-  #             help="Print extra output [default= %default]"),
-  # make_option(c("-q", "--quietly"), action="store_false",
-  #             dest="verbose", help="Print little output [default= %default]"),
-  
+  make_option(c("-o", "--output_dir"),
+              type = "character",
+              default = "./OUTPUT/", 
+              help = "Output directory [default = %default]",
+              metavar = "character"),
+  make_option(c("-n", "--cores"),
+              type = "numeric",
+              default = ifelse(is.na(slurm_cores), 2, slurm_cores),
+              help = "Number of cores for multicore run [default = %default]"),
+  make_option(c("-c", "--clean"),
+              action = "store_true",
+              default = FALSE,
+              help = "Delete output directory and re-run all analyses? [default= %default]")
 ); 
 
-opt_parser = OptionParser(option_list=option_list);
+opt_parser = OptionParser(option_list = option_list);
 opt = parse_args(opt_parser);
 
 ### BEGIN SCRIPT ###
@@ -96,6 +99,11 @@ dir.create(opt$output_dir,
 out <- function(...){
   stringr::str_c(opt$output_dir,...)
 }
+
+# Create a directory for writing tables
+dir.create(out("TABLES"),
+           showWarnings = FALSE,
+           recursive = TRUE)
 
 # A function to set an objects class
 set_class <- function(x, classes){
@@ -205,15 +213,25 @@ time_check <-  Sys.time()
 # Here, we sample from -20 to 20 SD, at 1 SD interval
 sample.points <- -20:20
 
+## For loading with Google Sheets. Delete before publication.
+#### TODO: REMOVE
+devtools::install_github("jennybc/googlesheets")
+library(googlesheets)
+gs_auth()
+gs_title("crop_gdd_needs") %>%
+  gs_download(to = "./DATA/crop_gdd_needs.csv",
+              overwrite = TRUE)
+####
+
 # Read in data on different crop GDD needs
-crop_GDD <- readr::read_csv("./DATA/crop_GDD_needs.csv")
+crop_GDD <- readr::read_csv("./DATA/crop_gdd_needs.csv")
 
 # create the cluster for parallel computation
 cl <- makeCluster(opt$cores, type = "PSOCK")
 registerDoParallel(cl)
 
 # Transform GHCN data to GDDs of each base, and modulate to Marcott
-GDDs <- sort(unique(crop_GDD$base_t))
+GDDs <- sort(unique(crop_GDD$t_base))
 GHCN.GDD.incremented.sd <- foreach::foreach(base = GDDs) %do% {
   
   out.list <- foreach::foreach(change = sample.points,
@@ -273,7 +291,7 @@ krige_and_predict <- function(dt){
   
   prediction <- ASIA_rast_etopo5.sp %>%
     tibble::as_tibble() %>%
-    dplyr::mutate(chunk = rep(1:ceiling(nrow(.)/chunk_size),length.out = nrow(.)) %>%
+    dplyr::mutate(chunk = rep(1:ceiling(nrow(.)/chunk_size), length.out = nrow(.)) %>%
                     sort()
     ) %>%
     dplyr::group_by(chunk) %>%
@@ -289,7 +307,7 @@ krige_and_predict <- function(dt){
 }
 
 # Calculate gdd kriging models for each crop
-gdd_model_files <- out("MODELS/",crop_GDD$crop,"_models.rds")
+gdd_model_files <- out("MODELS/",crop_GDD$cultivar,"_models.rds")
 
 if(opt$clean){
   unlink(out("MODELS"), recursive = TRUE, force = TRUE)
@@ -314,7 +332,9 @@ if(nrow(crop_GDD_run) == 0){
 smooth.preds <- function(y){
   y[y<0] <- 0
   y[y>1] <- 1
-  y <- loess(isoreg(y~sample.points)$yf~sample.points, span=0.1, degree=1)
+  y <- loess(isoreg(y~sample.points)$yf~sample.points,
+             span=0.1,
+             degree=1)
   return(y)
 }
 
@@ -327,22 +347,22 @@ if(nrow(crop_GDD_run) > 0){
   chunk_size <- 10000
   
   gdd.models <- foreach::foreach(crop = 1:nrow(crop_GDD_run),
-                                 .packages = c("fields","dplyr","magrittr","foreach","doParallel","readr"),
+                                 .packages = c("fields", "dplyr", "magrittr", "foreach", "doParallel", "readr"),
                                  .export = c("sample.points")) %dopar% {
                                    
                                    # Threshold for indicator kriging
-                                   GHCN.GDD.incremented.sd[[as.character(crop_GDD_run[crop,"base_t"])]] %>%
+                                   GHCN.GDD.incremented.sd[[as.character(crop_GDD_run[crop,"t_base"])]] %>%
                                      dplyr::mutate(GDD_thresh = {GDD >= as.numeric(crop_GDD_run[crop,"min_gdd"])}) %>%
                                      dplyr::group_by(SD_change) %>%
                                      dplyr::do(out_preds = krige_and_predict(.)) %$%
                                      out_preds %>%
                                      sapply("[[","prediction") %>%
-                                     apply(1,smooth.preds) %>%
+                                     apply(1, smooth.preds) %>%
                                      tibble::tibble(model = .) %>%
                                      maptools::spCbind(ASIA_rast_etopo5.sp,.) %>%
-                                     readr::write_rds(out("MODELS/",crop_GDD_run[crop,"crop"],"_models.rds"), compress = "xz")
+                                     readr::write_rds(out("MODELS/",crop_GDD_run[crop,"cultivar"],"_models.rds"), compress = "xz")
                                    
-                                   return(out("MODELS/",crop_GDD_run[crop,"crop"],"_models.rds"))
+                                   return(out("MODELS/",crop_GDD_run[crop,"cultivar"],"_models.rds"))
                                  }
   
   # stop the cluster (will free memory)
@@ -379,7 +399,7 @@ predictor <- function(x, newdata){
 cl <- makeCluster(min(opt$cores,5), type = "PSOCK")
 registerDoParallel(cl)
 
-gdd.recons <- foreach::foreach(crop = crop_GDD$crop,
+gdd.recons <- foreach::foreach(crop = crop_GDD$cultivar,
                                .packages = c("magrittr",
                                              "foreach"),
                                .combine = c) %dopar% {
@@ -420,9 +440,9 @@ gdd.recons <- foreach::foreach(crop = crop_GDD$crop,
                                                                    as("SpatialPixelsDataFrame") %>%
                                                                    raster::brick() %>%
                                                                    raster::setZ(marcott2013$YearBP, name="Years BP") %>%
-                                                                   raster::writeRaster(out("RECONS/",crop,"_",Zs,".nc"),
+                                                                   raster::writeRaster(out("RECONS/",crop,"_",Zs,"_test.nc"),
                                                                                        format = "CDF",
-                                                                                       datatype = "INT1S",
+                                                                                       datatype = "INT2S",
                                                                                        varname = "niche_probability",
                                                                                        varunit = "unitless", 
                                                                                        longname = "Probability of being in the crop niche x 100",
@@ -457,18 +477,18 @@ message("Combining like crop niches")
 time_check <-  Sys.time()
 
 combine_varieties <- function(x, file_tail){
-  if(file.exists(out("RECONS/All_",x$crop_type[[1]],"_",file_tail,".nc"))) return(NULL)
+  if(file.exists(out("RECONS/All_",x$crop[[1]],"_",file_tail,".nc"))) return(NULL)
   n_crops <- length(x$crop)
-  foreach::foreach(crop = x$crop) %do% {
-    out("RECONS/",crop,"_",file_tail,".nc") %>%
+  foreach::foreach(cultivar = x$cultivar) %do% {
+    out("RECONS/",cultivar,"_",file_tail,".nc") %>%
       raster::brick() %>%
       raster::getValues()
   } %>%
     Reduce(f = "+", x = .) %>%
     magrittr::divide_by(n_crops) %>%
     round() %>%
-    raster::setValues(raster::brick(out("RECONS/",x$crop[[1]],"_",file_tail,".nc")), .) %>%
-    raster::writeRaster(out("RECONS/All_",x$crop_type[[1]],"_",file_tail,".nc"),
+    raster::setValues(raster::brick(out("RECONS/",x$cultivar[[1]],"_",file_tail,".nc")), .) %>%
+    raster::writeRaster(out("RECONS/All_",x$crop[[1]],"_",file_tail,".nc"),
                         format = "CDF",
                         datatype = "INT1S",
                         varname = "niche_probability",
@@ -486,7 +506,7 @@ combine_varieties <- function(x, file_tail){
 # create the cluster for parallel computation
 cl <- makeCluster(min(opt$cores,
                       crop_GDD %$%
-                        crop_type %>%
+                        crop %>%
                         unique() %>%
                         length()),
                   type = "PSOCK")
@@ -494,7 +514,7 @@ registerDoParallel(cl)
 
 # Get mean niche for Marcott predictions
 foreach::foreach(crop = crop_GDD %>%
-  split(as.factor(crop_GDD$crop_type)),
+  split(as.factor(crop_GDD$crop)),
   .packages = c("magrittr",
                 "foreach"),
   .combine = c) %dopar% {
@@ -512,44 +532,44 @@ message("Combining like crop niches complete: ", capture.output(Sys.time() - tim
 
 
 
-##### BEGIN PLOT CROP NICHE THROUGH TIME #####
+##### BEGIN PLOT CULTIVAR NICHE THROUGH TIME #####
 
-## Plotting crop niche
+## Plotting cultivar niche
 # create the cluster for parallel computation
-message("Plotting niche reconstructions")
+message("Plotting cultivar niche reconstructions")
 time_check <-  Sys.time()
 if(opt$clean){
-  unlink(out("PLOTS"), recursive = TRUE, force = TRUE)
+  unlink(out("CULTIVAR_PLOTS"), recursive = TRUE, force = TRUE)
 }
-dir.create(out("PLOTS/"), showWarnings = F)
+dir.create(out("CULTIVAR_PLOTS/"), showWarnings = F)
 
 gdd.recons <- foreach::foreach(n = 1:nrow(crop_GDD),
                                .combine = c) %do% {
                                  
-                                 crop <- crop_GDD[n,]$crop
+                                 cultivar <- crop_GDD[n,]$cultivar
                                  
-                                 title <- stringr::str_c(crop_GDD[n,]$Crop_long,
+                                 title <- stringr::str_c(crop_GDD[n,]$cultivar_long,
                                                          " — T_base: ",
-                                                         crop_GDD[n,]$base_t,
+                                                         crop_GDD[n,]$t_base,
                                                          "°C, Required GDD: ",
                                                          crop_GDD[n,]$min_gdd)
                                  
-                                 if(file.exists(out("PLOTS/",crop,".pdf")) & file.exists(out("PLOTS/",crop,".mov")))
-                                   return(out("PLOTS/",crop,".pdf"))
+                                 if(file.exists(out("CULTIVAR_PLOTS/",cultivar,".pdf")) & file.exists(out("CULTIVAR_PLOTS/",cultivar,".mov")))
+                                   return(out("CULTIVAR_PLOTS/",cultivar,".pdf"))
                                  
-                                 rast <- raster::brick(out("RECONS/",crop,"_Z.nc")) %>%
+                                 rast <- raster::brick(out("RECONS/",cultivar,"_Z.nc")) %>%
                                    magrittr::extract2(which(.@z$`Years BP` > 1000)) %>%
                                    raster:::readAll() %>%
                                    magrittr::divide_by(100) %>%
                                    magrittr::extract2(nlayers(.):1)
                                  
-                                 rast.lower <- raster::brick(out("RECONS/",crop,"_Z_Lower.nc")) %>%
+                                 rast.lower <- raster::brick(out("RECONS/",cultivar,"_Z_Lower.nc")) %>%
                                    magrittr::extract2(which(.@z$`Years BP` > 1000)) %>%
                                    raster:::readAll() %>%
                                    magrittr::divide_by(100) %>%
                                    magrittr::extract2(nlayers(.):1)
                                  
-                                 rast.upper <- raster::brick(out("RECONS/",crop,"_Z_Upper.nc")) %>%
+                                 rast.upper <- raster::brick(out("RECONS/",cultivar,"_Z_Upper.nc")) %>%
                                    magrittr::extract2(which(.@z$`Years BP` > 1000)) %>%
                                    raster:::readAll() %>%
                                    magrittr::divide_by(100) %>%
@@ -557,21 +577,23 @@ gdd.recons <- foreach::foreach(n = 1:nrow(crop_GDD),
                                  
                                  years <- rast %>%
                                    names() %>%
-                                   gsub(pattern = "X", replacement = "", x = .) %>%
+                                   gsub(pattern = "X",
+                                        replacement = "",
+                                        x = .) %>%
                                    as.numeric()
                                  
                                  pal <- c(rev(colorRampPalette(brewer.pal(9, "Blues")[2:9],
-                                                               bias = 1.5,
-                                                               space = "Lab")(50)),
+                                                               bias = 2,
+                                                               space = "Lab")(76)),
                                           colorRampPalette(brewer.pal(9, "Reds")[2:9],
                                                            bias = 1.5,
-                                                           space = "Lab")(50))
+                                                           space = "Lab")(26))
                                  
-                                 if(!file.exists(out("PLOTS/",crop,".pdf")))
+                                 if(!file.exists(out("CULTIVAR_PLOTS/",cultivar,".pdf")))
                                    space_time_plot(the_brick = rast, 
                                                    the_brick_lower = rast.lower, 
                                                    the_brick_upper = rast.upper, 
-                                                   out_file = out("PLOTS/",crop,".pdf"),
+                                                   out_file = out("CULTIVAR_PLOTS/",cultivar,".pdf"),
                                                    title = title,
                                                    time = years,
                                                    timelim = c(max(years),min(years)),
@@ -585,11 +607,11 @@ gdd.recons <- foreach::foreach(n = 1:nrow(crop_GDD),
                                                    zcolors = pal
                                    )
                                  
-                                 if(!file.exists(out("PLOTS/",crop,".mov")))
+                                 if(!file.exists(out("CULTIVAR_PLOTS/",cultivar,".mov")))
                                    space_time_video(the_brick = rast, 
                                                     the_brick_lower = rast.lower, 
                                                     the_brick_upper = rast.upper, 
-                                                    out_file = out("PLOTS/",crop,".mov"),
+                                                    out_file = out("CULTIVAR_PLOTS/",cultivar,".mov"),
                                                     title = title,
                                                     time = years,
                                                     timelim = c(max(years),min(years)),
@@ -603,12 +625,12 @@ gdd.recons <- foreach::foreach(n = 1:nrow(crop_GDD),
                                                     zcolors = pal
                                    )
                                  
-                                 return(out("PLOTS/",crop,".pdf"))
+                                 return(out("CULTIVAR_PLOTS/",cultivar,".pdf"))
                                }
 
-message("Plotting of niche reconstructions complete: ", capture.output(Sys.time() - time_check))
+message("Plotting of cultivar niche reconstructions complete: ", capture.output(Sys.time() - time_check))
 
-##### END PREDICT CROP NICHE THROUGH TIME #####
+##### END PREDICT CULTIVAR NICHE THROUGH TIME #####
 
 
 
@@ -652,7 +674,23 @@ chronometric_data <- readr::read_csv("./DATA/chronometric_data.csv",
                 !(is.na(`14C age BP`) & is.na(`Age range lower (BP)`)),
                 !is.na(`14C date on cereal?`),
                 !`Exclude?`) %>%
+  dplyr::select(-`Exclude?`, -Notes) %>%
   group_by(Site,Period)
+
+# Write table of radiocarbon dates
+chronometric_data %>%
+  dplyr::select(Site,
+         Period,
+         `Lab sample identifier`,
+         Material,
+         `14C age BP`,
+         `1-sigma uncertainty`,
+         Reference) %>%
+  dplyr::filter(!is.na(`14C age BP`)) %>%
+  dplyr::arrange(Site, Period) %>%
+  readr::write_csv(out("TABLES/radiocarbon_dates.csv"))
+
+
 
 # A function to calibrate either 14C dates (using BchronCalibrate), or 
 # site age estimates (using a flat density estimation)
@@ -745,57 +783,54 @@ foreach(site = unique(densities$Site)) %do% {
 #        xlab = "Year BP",
 #        ylab = "Density")
 
+
 # Create a spatial object of the sites
 sites <- chronometric_data %>%
-  mutate(Millet = any(`Foxtail millet`,`Broomcorn millet`,`Millet (unidentified)`),
-         Wheat = any(Wheat),
-         Barley = any(Barley),
-         Buckwheat = any(Buckwheat),
-         Rice = any(Rice, `Rice (wild)`)) %>%
+  mutate(foxtail_millets = ifelse(is.na(`Foxtail millet`), FALSE, TRUE),
+         broomcorn_millets = ifelse(is.na(`Broomcorn millet`), FALSE, TRUE),
+         wheats = ifelse(is.na(Wheat), FALSE, TRUE),
+         barleys = ifelse(is.na(Barley), FALSE, TRUE),
+         buckwheat = ifelse(is.na(Buckwheat), FALSE, TRUE)) %>%
   dplyr::select(Site,
                 Period,
                 Longitude,
                 Latitude,
-                Millet,
-                Wheat,
-                Barley,
-                Buckwheat,
-                Rice) %>%
+                foxtail_millets,
+                broomcorn_millets,
+                wheats,
+                barleys,
+                buckwheat) %>%
   dplyr::ungroup() %>%
-  dplyr::arrange(Millet, Wheat, Barley, Buckwheat, Rice) %>%
-  dplyr::distinct(Site, Period, .keep_all = TRUE) %>%
+  dplyr::distinct() %>%
+  tidyr::gather(Crop, Present, -Site, -Period, -Longitude, -Latitude) %>%
+  dplyr::filter(Present) %>%
+  dplyr::select(-Present) %>%
+  dplyr::distinct() %>%
   dplyr::arrange(Site, Period) %>%
   sf::st_as_sf(coords = c("Longitude", "Latitude")) %>%
   sf::st_set_crs("+proj=longlat")
 
-niches <- foreach::foreach(crop = c("Millet","Wheat","Barley","Buckwheat","Rice")) %do% {
-  crop_rast <- raster::brick(out("RECONS/All_",crop,"_Z.nc")) %>%
+# A function to extract niches for each crop
+extract_niches <- function(x){
+  out_niche <- raster::brick(out("RECONS/All_",x$Crop[[1]],"_Z.nc")) %>%
     raster:::readAll() %>%
-    raster::extract(sites %>% 
+    raster::extract(x %>%
                       as("Spatial")) %>%
     split(row(.))
-
-  crop_out <- sites %>%
+  x %<>% 
     set_class(c("tbl_df", "tbl", "data.frame")) %>%
-    dplyr::select_("Site",
-                   "Period",
-                   crop) %>%
-    dplyr::mutate(crop = crop_rast)
-  
-  crop_out[["crop"]][is.na(crop_out[[crop]])] <- lapply(1:length(crop_out[["crop"]][is.na(crop_out[[crop]])]),
-                                                        function(x) return(NULL))
-  crop_out %<>%
-    dplyr::select(Site,
-                   Period,
-                   crop) %>%
-    magrittr::set_names(c("Site",
-                    "Period",
-                    crop))
-  
-  return(crop_out)
-} %>%
-  purrr::reduce(dplyr::full_join, by = c("Site","Period")) %>%
-  dplyr::arrange(Site, Period)
+    dplyr::mutate(Niche = out_niche) %>%
+    sf::st_as_sf()
+  return(x)
+}
+
+# Extract niches for each crop
+niches <- sites %>%
+  split(as.factor(sites$Crop)) %>%
+  purrr::map(extract_niches) %>%
+  purrr::map(~ set_class(., c("tbl_df", "tbl", "data.frame"))) %>%
+  do.call(what = rbind, args = .) %>%
+  sf::st_as_sf()
 
 # A function to extract the 95% confidence interval of a distribution
 get_CI <- function(dens){
@@ -806,7 +841,10 @@ get_CI <- function(dens){
   lower <- which(cum_dens >= 0.025)[1]
   mid <- which(cum_dens >= 0.5)[1]
   upper <- which(cum_dens >= 0.975)[1]
-  return(list(Density = dens, Median = mid, CI = c(lower = lower, upper = upper)))
+  return(list(Density = dens,
+              Median = mid,
+              CI = c(lower = lower,
+                     upper = upper)))
 }
 
 # A function to calculate local niches
@@ -815,7 +853,7 @@ local_niche <- function(niche, dens){
   out_niche <- list()
   out_niche$Niche <- rep(NA, length(niche))
   out_niche$Niche[dens$CI[["lower"]]:dens$CI[["upper"]]] <- niche[dens$CI[["lower"]]:dens$CI[["upper"]]]
-  out_niche$Niche <- out_niche$Niche / 100 # onvert to probability
+  out_niche$Niche <- out_niche$Niche / 100 # convert to probability
   out_niche$Median <- quantile(out_niche$Niche, probs = 0.5, na.rm = TRUE)
   out_niche$CI <- c(quantile(out_niche$Niche, probs = 0.025, na.rm = TRUE),
                     quantile(out_niche$Niche, probs = 0.975, na.rm = TRUE))
@@ -827,41 +865,44 @@ local_niche <- function(niche, dens){
 # by the crop niche probabilities (summing will get the average)
 # Join the niche and density tables
 niche_densities <- niches %>%
-  right_join(densities %>%
-               dplyr::select(Site, Period, Density)) %>%
-  dplyr::select(Site, Period, Density, Millet:Rice) %>%
+  set_class(c("tbl_df", "tbl", "data.frame")) %>%
+  dplyr::left_join(densities, by = c("Site", "Period")) %>%
+  dplyr::select(Site:Niche, Density) %>%
   # Get local densities
   dplyr::mutate(Density = purrr::map(Density, get_CI),
-                Millet = purrr::map2(Millet, Density, local_niche),
-                Wheat = purrr::map2(Wheat, Density, local_niche),
-                Barley = purrr::map2(Barley, Density, local_niche),
-                Buckwheat = purrr::map2(Buckwheat, Density, local_niche),
-                Rice = purrr::map2(Rice, Density, local_niche)
-  ) %>%
-  dplyr::filter(!sapply(Millet, is.null))
+                Niche = purrr::map2(Niche, Density, local_niche)
+  )
+
+niche_densities %>%
+  dplyr::filter(Crop %in% c("barleys","wheats", "foxtail_millets", "broomcorn_millets"),
+                !purrr::map_lgl(Niche, is.null)) %>%
+  dplyr::mutate(Density_Median = marcott2013$YearBP[purrr::map_int(Density, "Median")],
+                Density_Lower = marcott2013$YearBP[purrr::map(Density, "CI") %>% 
+                                                     purrr::map_dbl("lower")],
+                Density_Upper = marcott2013$YearBP[purrr::map(Density, "CI") %>% 
+                                                     purrr::map_dbl("upper")],
+                Crop_Median = purrr::map_dbl(Niche, "Median"),
+                Crop_Lower = purrr::map(Niche, "CI") %>% 
+                  purrr::map_dbl("lower"),
+                Crop_Upper = purrr::map(Niche, "CI") %>% 
+                  purrr::map_dbl("upper"))
 
 # Create biplots of each crop/site
-dir.create(out("GRAPHS/libs"), showWarnings = FALSE, recursive = TRUE)
-foreach::foreach(crop = c("Millet","Wheat","Barley","Buckwheat","Rice")) %do% {
+# dir.create(out("GRAPHS/libs"), showWarnings = FALSE, recursive = TRUE)
+foreach::foreach(crop = unique(niche_densities$Crop)) %do% {
   pdf(out("GRAPHS/",crop,"_crossplot.pdf"))
   p <- niche_densities %>%
-    dplyr::select_("Site",
-                   "Period",
-                   "Density",
-                   crop) %>%
-    magrittr::set_names(c("Site",
-                          "Period",
-                          "Density",
-                          "Crop")) %>%
+    dplyr::filter(Crop == crop) %>%
+    dplyr::filter(!purrr::map_lgl(Niche, is.null)) %>%
     dplyr::mutate(Density_Median = marcott2013$YearBP[purrr::map_int(Density, "Median")],
                   Density_Lower = marcott2013$YearBP[purrr::map(Density, "CI") %>% 
                                                        purrr::map_dbl("lower")],
                   Density_Upper = marcott2013$YearBP[purrr::map(Density, "CI") %>% 
                                                        purrr::map_dbl("upper")],
-                  Crop_Median = purrr::map_dbl(Crop, "Median"),
-                  Crop_Lower = purrr::map(Crop, "CI") %>% 
+                  Crop_Median = purrr::map_dbl(Niche, "Median"),
+                  Crop_Lower = purrr::map(Niche, "CI") %>% 
                     purrr::map_dbl("lower"),
-                  Crop_Upper = purrr::map(Crop, "CI") %>% 
+                  Crop_Upper = purrr::map(Niche, "CI") %>% 
                     purrr::map_dbl("upper")) %>%
     ggplot2::ggplot(aes(x = Density_Median, y = Crop_Median, label = Site)) + 
     geom_point(na.rm = TRUE) + 
@@ -878,13 +919,231 @@ foreach::foreach(crop = c("Millet","Wheat","Barley","Buckwheat","Rice")) %do% {
   print(p)
   dev.off()
   
-  pp <-plotly::ggplotly(tooltip = c("Site"))
-  htmlwidgets::saveWidget(widget = as_widget(pp),
-                          file = paste0(crop,"_crossplot.html"))
+  # pp <- plotly::ggplotly(tooltip = c("Site"))
+  # htmlwidgets::saveWidget(widget = as_widget(pp),
+  #                         file = paste0(crop,"_crossplot.html"))
 }
   
-  
+p <- niche_densities %>%
+  dplyr::mutate(`Site, Period` = stringr::str_c(Site,ifelse(is.na(Period),"",stringr::str_c(", ",Period)))) %>%
+  dplyr::filter(!purrr::map_lgl(Niche, is.null)) %>%
+  dplyr::mutate(Density_Median = marcott2013$YearBP[purrr::map_int(Density, "Median")],
+                Density_Lower = marcott2013$YearBP[purrr::map(Density, "CI") %>% 
+                                                     purrr::map_dbl("lower")],
+                Density_Upper = marcott2013$YearBP[purrr::map(Density, "CI") %>% 
+                                                     purrr::map_dbl("upper")],
+                Crop_Median = purrr::map_dbl(Niche, "Median"),
+                Crop_Lower = purrr::map(Niche, "CI") %>% 
+                  purrr::map_dbl("lower"),
+                Crop_Upper = purrr::map(Niche, "CI") %>% 
+                  purrr::map_dbl("upper")) %>%
+  ggplot2::ggplot(aes(x = Density_Median,
+                      y = Crop_Median,
+                      colour = Crop,
+                      label = `Site, Period`)) + 
+  geom_point(na.rm = TRUE) + 
+  geom_errorbarh(aes(xmin = Density_Lower,
+                     xmax = Density_Upper),
+                 na.rm = TRUE) +
+  geom_errorbar(aes(ymin = Crop_Lower,
+                    ymax = Crop_Upper),
+                na.rm = TRUE) + 
+  xlim(6000,0) +
+  ylim(0,1) +
+  xlab("Years BP") +
+  ylab(stringr::str_c("Probability of Being in the Niche"))
+print(p)
+dev.off()
+
+pp <- plotly::ggplotly(tooltip = c("label"))
+htmlwidgets::saveWidget(widget = as_widget(pp),
+                        file = "All_crossplot.html")
+
+
 ##### END CHRONOMETRIC ANALYSIS #####
+
+
+
+##### BEGIN PLOT CROP NICHE THROUGH TIME #####
+
+## Plotting crop niche with associated sites
+# create the cluster for parallel computation
+message("Plotting crop niche reconstructions")
+time_check <-  Sys.time()
+if(opt$clean){
+  unlink(out("CROP_PLOTS"), recursive = TRUE, force = TRUE)
+}
+dir.create(out("CROP_PLOTS/"), showWarnings = F)
+
+# Combine the sites with the density data
+site_densities <- niche_densities %>%
+  dplyr::filter(!purrr::map_lgl(Niche, is.null)) %>%
+  dplyr::mutate(Density_Lower = marcott2013$YearBP[purrr::map(Density, "CI") %>% 
+                                                     purrr::map_dbl("lower")],
+                Density_Upper = marcott2013$YearBP[purrr::map(Density, "CI") %>% 
+                                                     purrr::map_dbl("upper")]) %>%
+  dplyr::select(-Density) %>%
+  dplyr::filter(!is.na(Density_Lower)) %>%
+  dplyr::left_join(sites, by = c("Site", "Period", "Crop")) %>%
+  dplyr::mutate(Niche = purrr::map(Niche, function(x){
+    x$Niche <-
+      tibble::tibble(`Year BP` = marcott2013$YearBP, Niche = x$Niche)
+    return(x)
+  }))
+
+crops <- crop_GDD %>%
+  dplyr::filter(crop %in% site_densities$Crop) %>%
+  dplyr::select(crop_long, crop) %>%
+  dplyr::distinct()
+
+for(n in 1:nrow(crops)){
+  
+  crop <- crops[n,]$crop
+  
+  title <- stringr::str_c(crops[n,]$crop_long)
+  
+  if(file.exists(out("CROP_PLOTS/All_",crop,".pdf")) & file.exists(out("CROP_PLOTS/All_",crop,".mov")))
+    next
+  
+  rast <- raster::brick(out("RECONS/All_",crop,"_Z.nc")) %>%
+    magrittr::extract2(which(.@z$`Years BP` > 1000)) %>%
+    raster:::readAll() %>%
+    magrittr::divide_by(100) %>%
+    magrittr::extract2(nlayers(.):1)
+  
+  rast.lower <- raster::brick(out("RECONS/All_",crop,"_Z_Lower.nc")) %>%
+    magrittr::extract2(which(.@z$`Years BP` > 1000)) %>%
+    raster:::readAll() %>%
+    magrittr::divide_by(100) %>%
+    magrittr::extract2(nlayers(.):1)
+  
+  rast.upper <- raster::brick(out("RECONS/All_",crop,"_Z_Upper.nc")) %>%
+    magrittr::extract2(which(.@z$`Years BP` > 1000)) %>%
+    raster:::readAll() %>%
+    magrittr::divide_by(100) %>%
+    magrittr::extract2(nlayers(.):1)
+  
+  years <- rast %>%
+    names() %>%
+    gsub(pattern = "X",
+         replacement = "",
+         x = .) %>%
+    as.numeric()
+  
+  pal <- c(rev(colorRampPalette(brewer.pal(9, "Blues")[2:9],
+                                bias = 2,
+                                space = "Lab")(76)),
+           colorRampPalette(brewer.pal(9, "Reds")[2:9],
+                            bias = 1.5,
+                            space = "Lab")(26))
+  
+  if(!file.exists(out("CROP_PLOTS/All_",crop,".pdf")))
+    space_time_plot(the_brick = rast, 
+                    the_brick_lower = rast.lower, 
+                    the_brick_upper = rast.upper, 
+                    out_file = out("CROP_PLOTS/All_",crop,".pdf"),
+                    title = title,
+                    time = years,
+                    timelim = c(max(years),min(years)),
+                    timeaxis =  seq(from = max(years)-500,
+                                    to = min(years),
+                                    by = -500),
+                    timelab = "Years BP",
+                    zbreaks = seq(0,1,0.01),
+                    zlab = "Probability of being in niche",
+                    zaxis = seq(0,1,0.1),
+                    zcolors = pal
+    )
+  
+  
+  if(!file.exists(out("CROP_PLOTS/All_",crop,".mov"))){
+    # A function to extract site locations for a given year and crop, and plot them
+    sites_plot <- function(years = NULL, crops = NULL, scale = scales::area_pal(c(0,1))){
+      x_plot <- site_densities
+      year_idx <- which(marcott2013$YearBP == years)
+      
+      # if(!is.null(years)){
+      #   x_plot %<>%
+      #     dplyr::filter(any(Density_Lower < years),
+      #                   any(Density_Upper > years))
+      # }
+      
+      if(!is.null(crops)){
+        x_plot %<>%
+          dplyr::filter(Crop %in% crops)
+      }
+      
+      cexs <- purrr::map(x_plot$Niche,c("Niche","Niche")) %>%
+        purrr::map(year_idx) %>%
+        unlist() %>%
+        scale()
+      
+      x_plot %<>%
+        dplyr::filter(!is.na(cexs))
+      
+      cexs <- cexs[!is.na(cexs)]
+      
+      x_plot %$%
+        plot(geometry,
+             cex = cexs,
+             pch = 1,
+             lwd = 3,
+             col = "white",
+             add = T)
+      x_plot %$%
+        plot(geometry,
+             cex = cexs,
+             pch = 1,
+             lwd = 1.5,
+             col = "black",
+             add = T)
+    }
+    
+    sites_legend <- function(){
+      legend("bottomright",
+             title = "Site probability \nof being in niche",
+             legend = seq(0,1,0.2),
+             pch = 1,
+             pt.lwd = 1.5,
+             col = "black",
+             pt.cex = scales::area_pal(c(0.5,3))(seq(0,1,0.2)),
+             bty = "n",
+             y.intersp = 1.5,
+             cex = 0.8,
+             text.font = 2
+      )
+    }
+    
+    space_time_video(the_brick = rast, 
+                     the_brick_lower = rast.lower, 
+                     the_brick_upper = rast.upper, 
+                     out_file = out("CROP_PLOTS/All_",crop,".mov"),
+                     title = title,
+                     time = years,
+                     timelim = c(max(years),min(years)),
+                     timeaxis =  seq(from = max(years)-500,
+                                     to = min(years),
+                                     by = -500),
+                     timelab = "Years BP",
+                     zbreaks = seq(0,1,0.01),
+                     zlab = "Probability of being in niche",
+                     zaxis = seq(0,1,0.1),
+                     zcolors = pal,
+                     extra_plot_fun = purrr::partial(sites_plot,
+                                                     crops = crop,
+                                                     scale = scales::area_pal(c(0.5,3))),
+                     extra_legend_fun = sites_legend
+    )
+    
+    
+  }
+}
+
+message("Plotting of crop niche reconstructions complete: ", capture.output(Sys.time() - time_check))
+
+##### END PREDICT CROP NICHE THROUGH TIME #####
+
+
 
 message("asian_niche.R complete! Total run time: ", capture.output(Sys.time() - start_time))
 
