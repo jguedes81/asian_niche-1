@@ -26,7 +26,7 @@ prepare_marcott <- function(calibration.years){
   
   # Write the final Marcott dataset for the reconstruction
   message("Exporting the standard score data for later use.")
-  readr::write_csv(marcott2013,out("MARCOTT2013_Z.csv"))
+  readr::write_csv(marcott2013,out("DATA/marcott2013/MARCOTT2013_Z.csv"))
   return(marcott2013)
 }
 

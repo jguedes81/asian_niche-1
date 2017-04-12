@@ -9,8 +9,8 @@ prepare_ghcn <- function(region,
                          google_maps_elevation_api_key,
                          force.redo = FALSE){
   # Keep only the clean stations
-  if(!force.redo & file.exists(out("ghcn_data_final.Rds"))){
-    GHCN.data.final <- readr::read_rds(out('ghcn_data_final.Rds'))
+  if(!force.redo & file.exists(out("DATA/GHCN/ghcn_data_final.Rds"))){
+    GHCN.data.final <- readr::read_rds(out('DATA/GHCN/ghcn_data_final.Rds'))
     
     return(GHCN.data.final)
   }
@@ -42,7 +42,7 @@ prepare_ghcn <- function(region,
   GHCN.data <- GHCN.data[!(GHCN.data %>% sapply(length) < 2)]
   
   ## Clean the GHCN data
-  if(force.redo | !file.exists(out("ghcn_data_clean.Rds"))){
+  if(force.redo | !file.exists(out("DATA/GHCN/ghcn_data_clean.Rds"))){
     
     # Get run length encoding of missing data
     all.rles <- do.call(c,lapply(GHCN.data,function(test){
@@ -64,10 +64,10 @@ prepare_ghcn <- function(region,
     names(GHCN.data.clean) <- names(GHCN.data)
     GHCN.data.clean <- GHCN.data.clean[!sapply(GHCN.data.clean, is.null)]
     readr::write_rds(GHCN.data.clean,
-                     path = out("ghcn_data_clean.Rds"),
+                     path = out("DATA/GHCN/ghcn_data_clean.Rds"),
                      compress = "gz")
   }
-  GHCN.data.clean <- readr::read_rds(out("ghcn_data_clean.Rds"))
+  GHCN.data.clean <- readr::read_rds(out("DATA/GHCN/ghcn_data_clean.Rds"))
   
   
   # Keep only the clean stations
@@ -87,10 +87,10 @@ prepare_ghcn <- function(region,
     GHCN.data.final <- list(spatial = GHCN.stations, weather = GHCN.data.clean, climatology = GHCN.data.averages)
 
     readr::write_rds(GHCN.data.clean,
-                     path = out('ghcn_data_final.Rds'),
+                     path = out('DATA/GHCN/ghcn_data_final.Rds'),
                      compress = "gz")
   }
-  GHCN.data.final <- readr::read_rds(out('ghcn_data_final.Rds'))
+  GHCN.data.final <- readr::read_rds(out('DATA/GHCN/ghcn_data_final.Rds'))
   
   return(GHCN.data.final)
 }
