@@ -283,7 +283,7 @@ GHCN.GDD.incremented.sd <- foreach::foreach(base = GDDs,
            dplyr::bind_rows() %>%
            dplyr::left_join(GHCN.data.final$spatial %>% 
                               dplyr::as_data_frame() %>% 
-                              dplyr::rename(x = LONGITUDE, y = LATITUDE), by = "ID"))
+                              dplyr::rename(x = coords.x1, y = coords.x2), by = "ID"))
 }
 names(GHCN.GDD.incremented.sd) <- GDDs
 
