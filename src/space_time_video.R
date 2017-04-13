@@ -16,7 +16,7 @@ space_time_video <- function(the_brick,
                             margin = 0.1,
                             pt_size = 8,
                             smooth = FALSE,
-                            length = 120, # Length in seconds of video
+                            length = 60, # Length in seconds of video
                             extra_plot_fun = NULL,
                             extra_legend_fun = NULL
                             ){
@@ -311,5 +311,5 @@ space_time_video <- function(the_brick,
   
   #Create the video
   fps <- nlayers(the_brick)/length
-  system(stringr::str_c("ffmpeg -r ",fps," -i ",out_dir,"/image%04d.png -s:v ",movie.width,"x",movie.height," -c:v libx264 -profile:v high444 -crf 30 -pix_fmt yuv420p ",out_file," -y"))
+  system(stringr::str_c("ffmpeg -r ",fps," -i ",out_dir,"/image%04d.png -s:v ",movie.width,"x",movie.height," -c:v libx264 -profile:v high444 -pix_fmt yuv420p ",out_file," -y"))
 }
