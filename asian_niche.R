@@ -268,7 +268,7 @@ GHCN.GDD.incremented.sd <- foreach::foreach(base = GDDs,
                                                       temp.change.sd = change,
                                                       t.base = base,
                                                       t.cap = 30))
-                                   
+                                  
                                  }
                                  
                                  names(GHCN.GDDs) <- names(GHCN.data.final$climatology)
@@ -773,8 +773,8 @@ densities <- chronometric_data %>%
 
 # Plot each site's probablility distribution
 junk <- foreach(site = unique(densities$Site)) %do% {
-  if(!file.exists(out("SITE_DENSITIES/",site,".png"))){
-    png(out("SITE_DENSITIES/",site,".png"))
+  if(!file.exists(out("SITE_DENSITIES/",site,".pdf"))){
+    cairo_pdf(filename = out("SITE_DENSITIES/",site,".pdf"))
     g <- densities %>%
       dplyr::filter(`Site` == site) %$%
       Density %>%

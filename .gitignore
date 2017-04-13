@@ -1,8 +1,6 @@
 # Output
 /OUTPUT
 /OUTPUT/*
-/All_crossplot.html
-/.httr-oauth
 
 # Mac trash files
 .DS_Store
