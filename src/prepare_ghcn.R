@@ -24,7 +24,7 @@ prepare_ghcn <- function(region,
     years = calibration.years,
     raw.dir=out("DATA/GHCN/RAW/"),
     extraction.dir = out("DATA/GHCN/"),
-    standardize=T,
+    standardize = TRUE,
     force.redo = force.redo
   )
   
@@ -83,10 +83,12 @@ prepare_ghcn <- function(region,
       return(lapply(station,calcDailyMeanSD))
     })
     
-    # Create a final dataset for use anywhere in Asia!
-    GHCN.data.final <- list(spatial = GHCN.stations, weather = GHCN.data.clean, climatology = GHCN.data.averages)
+    # Create a final dataset
+    GHCN.data.final <- list(spatial = GHCN.stations,
+                            weather = GHCN.data.clean,
+                            climatology = GHCN.data.averages)
 
-    readr::write_rds(GHCN.data.clean,
+    readr::write_rds(GHCN.data.final,
                      path = out('DATA/GHCN/ghcn_data_final.Rds'),
                      compress = "gz")
   }

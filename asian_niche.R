@@ -256,10 +256,10 @@ registerDoParallel(cl)
 
 # Transform GHCN data to GDDs of each base, and modulate to Marcott
 GDDs <- sort(unique(crop_GDD$t_base))
-GHCN.GDD.incremented.sd <- foreach::foreach(base = GDDs) %do% {
+GHCN.GDD.incremented.sd <- foreach::foreach(base = GDDs) %dopar% {
   
   out.list <- foreach::foreach(change = sample.points,
-                               .packages = c("foreach","magrittr")) %dopar% {
+                               .packages = c("foreach","magrittr")) %do% {
                                  
                                  GHCN.GDDs <- foreach::foreach(station = GHCN.data.final$climatology, .combine = c) %do% {
                                    
@@ -269,12 +269,12 @@ GHCN.GDD.incremented.sd <- foreach::foreach(base = GDDs) %do% {
                                                       t.cap = 30))
                                    
                                  }
+                                 
                                  names(GHCN.GDDs) <- names(GHCN.data.final$climatology)
                                  
                                  return(tibble::tibble(SD_change = change,
                                                           ID = names(GHCN.GDDs),
                                                           GDD = GHCN.GDDs))
-                                 
                                }
   names(out.list) <- sample.points
   

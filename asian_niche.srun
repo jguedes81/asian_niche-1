@@ -26,4 +26,4 @@ cd /data/cas/bocinsky/git/asian_niche
 export PATH=/home/bocinsky/packages/bin:$PATH
 export LD_LIBRARY_PATH=/home/bocinsky/packages/lib:$LD_LIBRARY_PATH
 
-Rscript --vanilla asian_niche.R -c
+Rscript --vanilla asian_niche.R
