@@ -271,7 +271,7 @@ GHCN.GDD.incremented.sd <- foreach::foreach(base = GDDs) %do% {
                                  }
                                  names(GHCN.GDDs) <- names(GHCN.data.final$climatology)
                                  
-                                 return(dplyr::data_frame(SD_change = change,
+                                 return(tibble::tibble(SD_change = change,
                                                           ID = names(GHCN.GDDs),
                                                           GDD = GHCN.GDDs))
                                  
