@@ -3,7 +3,6 @@
 # FedData provides functions for getting GHCN data, 
 # and the `pkg_test` function for installing/loading other packages
 #install.packages("devtools")
-# devtools::install_github("bocinsky/FedData")
 # devtools::install_cran("FedData")
 # Python-style argument parsing
 FedData::pkg_test("optparse")
