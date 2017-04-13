@@ -256,7 +256,8 @@ registerDoParallel(cl)
 
 # Transform GHCN data to GDDs of each base, and modulate to Marcott
 GDDs <- sort(unique(crop_GDD$t_base))
-GHCN.GDD.incremented.sd <- foreach::foreach(base = GDDs) %dopar% {
+GHCN.GDD.incremented.sd <- foreach::foreach(base = GDDs,
+                                            .packages = c("foreach","magrittr")) %dopar% {
   
   out.list <- foreach::foreach(change = sample.points,
                                .packages = c("foreach","magrittr")) %do% {
