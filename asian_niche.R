@@ -243,7 +243,7 @@ time_check <-  Sys.time()
 sample.points <- -20:20
 
 # Read in data on different crop GDD needs
-crop_GDD <- readr::read_csv("./DATA/blah") %>%
+crop_GDD <- readr::read_csv("./DATA/crops.csv") %>%
   dplyr::filter(crop %in% c("foxtail_millet",
                             "broomcorn_millet",
                             "wheat",
