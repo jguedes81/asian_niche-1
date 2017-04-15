@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --partition=cas         ### Running on the CAS partition
+##SBATCH --partition=cas         ### Running on the CAS partition
 #SBATCH --job-name=asian_niche     ### Job Name
 #SBATCH --output=asian_niche.out   ### File in which to store job output
 #SBATCH --error=asian_niche.err    ### File in which to store job error messages
