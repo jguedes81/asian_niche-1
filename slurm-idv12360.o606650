@@ -1,0 +1,4 @@
+/var/spool/slurmd/job606650/slurm_script: line 24: kill: (46063) - No such process
+/var/spool/slurmd/job606650/slurm_script: line 24: kill: (46066) - No such process
+/var/spool/slurmd/job606650/slurm_script: line 24: kill: (46069) - No such process
+slurmstepd: error: *** JOB 606650 ON cn58 CANCELLED AT 2017-04-12T14:32:49 ***
