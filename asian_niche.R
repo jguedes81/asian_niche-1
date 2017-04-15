@@ -1037,6 +1037,7 @@ crops <- crop_GDD %>%
   dplyr::select(crop_long, crop) %>%
   dplyr::distinct()
 
+message("Generating niche videos.")
 for(n in 1:nrow(crops)){
   
   crop <- crops[n,]$crop
