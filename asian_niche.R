@@ -973,7 +973,7 @@ p <- niche_densities %>%
 print(p)
 dev.off()
 
-pp <- plotly::ggplotly(tooltip = c("label"))
+pp <- plotly::ggplotly(tooltip = c("label"), type = "cairo-png")
 htmlwidgets::saveWidget(widget = as_widget(pp),
                         file = "All_crossplot.html")
 file.copy("All_crossplot.html",
