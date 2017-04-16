@@ -465,7 +465,7 @@ gdd.recons <- foreach::foreach(crop = crop_GDD$cultivar,
                                                                    raster::setZ(marcott2013$YearBP, name="Years BP") %>%
                                                                    raster::writeRaster(out("RECONS/",crop,"_",Zs,".nc"),
                                                                                        format = "CDF",
-                                                                                       datatype = "INT1S",
+                                                                                       datatype = "INT2S",
                                                                                        varname = "niche_probability",
                                                                                        varunit = "unitless", 
                                                                                        longname = "Probability of being in the crop niche x 100",
@@ -1119,6 +1119,10 @@ for(n in 1:nrow(crops)){
         purrr::map(year_idx) %>%
         unlist() %>%
         scale()
+      
+      if(cexs %>%
+         is.na() %>%
+         all()) return() #Don't plot if no sites during this period
       
       x_plot %<>%
         dplyr::filter(!is.na(cexs))
