@@ -936,50 +936,56 @@ junk <- foreach::foreach(crop = unique(niche_densities$Crop)) %do% {
     ylab(stringr::str_c("Probability of Being in the ",crop," Niche"))
   print(p)
   dev.off()
-  
-  # pp <- plotly::ggplotly(tooltip = c("Site"))
-  # htmlwidgets::saveWidget(widget = as_widget(pp),
-  #                         file = paste0(crop,"_crossplot.html"))
 }
 
-# p <- niche_densities %>%
-#   dplyr::mutate(`Site, Period` = stringr::str_c(Site,ifelse(is.na(Period),"",stringr::str_c(", ",Period)))) %>%
-#   dplyr::filter(!purrr::map_lgl(Niche, is.null)) %>%
-#   dplyr::mutate(Density_Median = marcott2013$YearBP[purrr::map_int(Density, "Median")],
-#                 Density_Lower = marcott2013$YearBP[purrr::map(Density, "CI") %>% 
-#                                                      purrr::map_dbl("lower")],
-#                 Density_Upper = marcott2013$YearBP[purrr::map(Density, "CI") %>% 
-#                                                      purrr::map_dbl("upper")],
-#                 Crop_Median = purrr::map_dbl(Niche, "Median"),
-#                 Crop_Lower = purrr::map(Niche, "CI") %>% 
-#                   purrr::map_dbl("lower"),
-#                 Crop_Upper = purrr::map(Niche, "CI") %>% 
-#                   purrr::map_dbl("upper")) %>%
-#   ggplot2::ggplot(aes(x = Density_Median,
-#                       y = Crop_Median,
-#                       colour = Crop,
-#                       label = `Site, Period`)) + 
-#   geom_point(na.rm = TRUE) + 
-#   geom_errorbarh(aes(xmin = Density_Lower,
-#                      xmax = Density_Upper),
-#                  na.rm = TRUE) +
-#   geom_errorbar(aes(ymin = Crop_Lower,
-#                     ymax = Crop_Upper),
-#                 na.rm = TRUE) + 
-#   xlim(6000,0) +
-#   ylim(0,1) +
-#   xlab("Years BP") +
-#   ylab(stringr::str_c("Probability of Being in the Niche"))
-# print(p)
-# dev.off()
-# 
-# pp <- plotly::ggplotly(tooltip = c("label"))
-# htmlwidgets::saveWidget(widget = as_widget(pp),
-#                         file = "All_crossplot.html")
-# file.copy("All_crossplot.html",
-#           to = out("FIGURES/All_crossplot.html"),
-#           overwrite = TRUE)
-# unlink("All_crossplot.html")
+p <- niche_densities %>%
+  dplyr::mutate(`Site, Period` = stringr::str_c(Site,ifelse(is.na(Period),"",stringr::str_c(", ",Period)))) %>%
+  dplyr::filter(!purrr::map_lgl(Niche, is.null),
+                Crop != "buckwheat") %>%
+  dplyr::mutate(Crop = dplyr::recode_factor(Crop,
+                                             foxtail_millet = "Foxtail millet",
+                                             broomcorn_millet = "Broomcorn millet",
+                                             wheat = "Wheat",
+                                             barley = "Barley")) %>%
+  dplyr::mutate(Density_Median = marcott2013$YearBP[purrr::map_int(Density, "Median")],
+                Density_Lower = marcott2013$YearBP[purrr::map(Density, "CI") %>%
+                                                     purrr::map_dbl("lower")],
+                Density_Upper = marcott2013$YearBP[purrr::map(Density, "CI") %>%
+                                                     purrr::map_dbl("upper")],
+                Crop_Median = purrr::map_dbl(Niche, "Median"),
+                Crop_Lower = purrr::map(Niche, "CI") %>%
+                  purrr::map_dbl("lower"),
+                Crop_Upper = purrr::map(Niche, "CI") %>%
+                  purrr::map_dbl("upper")) %>%
+  ggplot2::ggplot(aes(x = Density_Median,
+                      y = Crop_Median,
+                      colour = Crop,
+                      label = `Site, Period`)) +
+  geom_point(na.rm = TRUE) +
+  geom_errorbarh(aes(xmin = Density_Lower,
+                     xmax = Density_Upper),
+                 na.rm = TRUE) +
+  geom_errorbar(aes(ymin = Crop_Lower,
+                    ymax = Crop_Upper),
+                na.rm = TRUE) +
+  xlim(6000,0) +
+  ylim(0,1) +
+  xlab("Years BP") +
+  ylab(stringr::str_c("Probability of Being in the Niche"))
+
+cairo_pdf(out("FIGURES/All_crossplot.pdf"), width = 7.2, height = 5.91)
+print(p +
+        theme(legend.position="none") + 
+        ggplot2::facet_wrap( ~ Crop, ncol=2))
+dev.off()
+
+pp <- plotly::ggplotly(tooltip = c("label"))
+htmlwidgets::saveWidget(widget = as_widget(pp),
+                        file = "All_crossplot.html")
+file.copy("All_crossplot.html",
+          to = out("FIGURES/All_crossplot.html"),
+          overwrite = TRUE)
+unlink("All_crossplot.html")
 
 # Write out a table
 niche_densities %>%
@@ -1103,12 +1109,6 @@ for(n in 1:nrow(crops)){
     sites_plot <- function(years = NULL, crops = NULL, scale = scales::area_pal(c(0,1))){
       x_plot <- site_densities
       year_idx <- which(marcott2013$YearBP == years)
-      
-      # if(!is.null(years)){
-      #   x_plot %<>%
-      #     dplyr::filter(any(Density_Lower < years),
-      #                   any(Density_Upper > years))
-      # }
       
       if(!is.null(crops)){
         x_plot %<>%
