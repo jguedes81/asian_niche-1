@@ -67,7 +67,8 @@ FedData::pkg_test("mclust")
 
 # Packages for tidy code
 FedData::pkg_test("magrittr")
-FedData::pkg_test("hadley/tidyverse")
+FedData::pkg_test("tidyverse")
+FedData::pkg_test("readr")
 
 # Plotting
 FedData::pkg_test("RColorBrewer")
@@ -243,7 +244,15 @@ time_check <-  Sys.time()
 sample.points <- -20:20
 
 # Read in data on different crop GDD needs
-crop_GDD <- readr::read_csv("./DATA/crops.csv") %>%
+crop_GDD <- readr::read_csv("./DATA/crops.csv",
+                            col_types = readr::cols(
+                              cultivar_long = col_character(),
+                              cultivar = col_character(),
+                              crop_long = col_character(),
+                              crop = col_character(),
+                              t_base = col_double(),
+                              min_gdd = col_integer()
+                            )) %>%
   dplyr::filter(crop %in% c("foxtail_millet",
                             "broomcorn_millet",
                             "wheat",

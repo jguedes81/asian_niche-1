@@ -16,7 +16,10 @@ prepare_marcott <- function(calibration.years){
   message("Downloading Marcott et al. 2013 Northern Hemisphere temperature reconstruction.")
   dir.create(out("DATA/marcott2013/"), showWarnings = FALSE, recursive = TRUE)
   FedData::download_data(url="http://www.sciencemag.org/content/suppl/2013/03/07/339.6124.1198.DC1/Marcott.SM.database.S1.xlsx",destdir=out("DATA/marcott2013/"))
-  marcott2013 <- readxl::read_excel(out("DATA/marcott2013/Marcott.SM.database.S1.xlsx"), sheet="TEMPERATURE STACKS", skip=6, col_names=F)[,20:22]
+  marcott2013 <- readxl::read_excel(out("DATA/marcott2013/Marcott.SM.database.S1.xlsx"),
+                                    sheet="TEMPERATURE STACKS",
+                                    range = "U3:W571",
+                                    col_types = "numeric")
   names(marcott2013) <- c("YearBP","Temperature","Uncertainty")
   message("Transforming temperature deviations to standard scores.")
   marcott2013 <- marcott2013[(marcott2013$YearBP <= 5510)&(!is.na(marcott2013$Temperature)),]
