@@ -40,44 +40,18 @@ message("asian_niche.R started at ", start_time)
 ## This is the code for the pan-Asian niche reconstructions
 
 ## Load all packages
-# Packages for parallel processeing
-FedData::pkg_test("foreach")
-FedData::pkg_test("doParallel")
+all_packages <- c("foreach", "doParallel", # Packages for parallel processeing
+                  "R.utils", "Hmisc", "zoo", "abind", "mgcv", "rgbif", "fields", # Packages offering general utilities
+                  "sf", "rgdal", "ncdf4", "raster", "geomapdata", "maptools", "mapproj", # Packages for spatial processing
+                  "Bchron", "mclust", # Packages for chronometric analysis
+                  "magrittr", "tidyverse", "ggthemes", # Packages for tidy code
+                  "RColorBrewer", "htmlwidgets", "plotly") # Plotting
 
-# Packages offering general utilities
-FedData::pkg_test("R.utils")
-FedData::pkg_test("Hmisc")
-FedData::pkg_test("zoo")
-FedData::pkg_test("abind")
-FedData::pkg_test("mgcv")
-FedData::pkg_test("rgbif")
-FedData::pkg_test("fields")
-
-# Packages for spatial processing
-FedData::pkg_test("sf")
-FedData::pkg_test("rgdal")
-FedData::pkg_test("ncdf4")
-FedData::pkg_test("raster")
-FedData::pkg_test("geomapdata")
-FedData::pkg_test("maptools")
-
-# Packages for chronometric analysis
-FedData::pkg_test("Bchron")
-FedData::pkg_test("mclust")
-
-# Packages for tidy code
-FedData::pkg_test("magrittr")
-FedData::pkg_test("tidyverse")
-FedData::pkg_test("readr")
-
-# Plotting
-FedData::pkg_test("RColorBrewer")
-FedData::pkg_test("plotly")
-FedData::pkg_test("htmlwidgets")
+junk <- lapply(all_packages, FedData::pkg_test)
 
 # Load all functions
-all.functions <- lapply(list.files("./src",full.names=T),
-                        source)
+list.files("./src",full.names=T) %>%
+  purrr::walk(source)
 
 # Force Raster to load large rasters into memory
 rasterOptions(chunksize=2e+08,maxmemory=2e+09)
@@ -134,6 +108,12 @@ google_maps_elevation_api_key = "AIzaSyDi4YVDZPt6uH1C1vF8YRpbp1mxqsWbi5M"
 
 # Report the number of cores for parallel processing
 message("Number of cores set to SLURM_NTASKS_PER_NODE = ",opt$cores)
+
+# A ggplot2 theme for Nature Publishing Group
+nature_theme <- ggplot2::theme(panel.grid.major = element_line(size = 0.5, color = "grey"), 
+                               axis.line = element_line(size = 0.7, color = "black"),
+                               legend.position = c(0.85, 0.7),
+                               text = element_text(size = 14))
 
 ##### END SET PARAMETERS #####
 
@@ -197,6 +177,20 @@ if(!opt$clean & file.exists(out("DATA/ASIA_rast_etopo5.tif"))){
   # unlink(out("DATA/NaturalEarth/ne_10m_lakes/"), recursive = T, force = T)
   # unlink(out("DATA/NaturalEarth/ne_10m_admin_0_countries_lakes/"), recursive = T, force = T)
 }
+
+countries <- out("DATA/NaturalEarth/ne_10m_admin_0_countries_lakes/ne_10m_admin_0_countries_lakes.shp") %>%
+  sf::st_read()  %>%
+  crop_custom(ASIA_poly) %>%
+  dplyr::filter(!(NAME %in% c("Indonesia",
+                              "Scarborough Reef",
+                              "Malaysia",
+                              "Philippines",
+                              "Maldives",
+                              "Spratly Is.",
+                              "Oman",
+                              "United Arab Emirates",
+                              "Saudi Arabia"))) %>%
+  dplyr::select(NAME, geometry)
 
 message("ETOPO5 grid-aligned dataset preparation complete: ", capture.output(Sys.time() - time_check))
 
@@ -267,33 +261,33 @@ registerDoParallel(cl)
 GDDs <- sort(unique(crop_GDD$t_base))
 GHCN.GDD.incremented.sd <- foreach::foreach(base = GDDs,
                                             .packages = c("foreach","magrittr")) %dopar% {
-  
-  out.list <- foreach::foreach(change = sample.points,
-                               .packages = c("foreach","magrittr")) %do% {
-                                 
-                                 GHCN.GDDs <- foreach::foreach(station = GHCN.data.final$climatology, .combine = c) %do% {
-                                   
-                                   return(sdModulator(data.df = station,
-                                                      temp.change.sd = change,
-                                                      t.base = base,
-                                                      t.cap = 30))
-                                  
-                                 }
-                                 
-                                 names(GHCN.GDDs) <- names(GHCN.data.final$climatology)
-                                 
-                                 return(tibble::tibble(SD_change = change,
-                                                          ID = names(GHCN.GDDs),
-                                                          GDD = GHCN.GDDs))
-                               }
-  names(out.list) <- sample.points
-  
-  return(out.list %>% 
-           dplyr::bind_rows() %>%
-           dplyr::left_join(GHCN.data.final$spatial %>% 
-                              dplyr::as_data_frame() %>% 
-                              dplyr::rename(x = LONGITUDE, y = LATITUDE), by = "ID"))
-}
+                                              
+                                              out.list <- foreach::foreach(change = sample.points,
+                                                                           .packages = c("foreach","magrittr")) %do% {
+                                                                             
+                                                                             GHCN.GDDs <- foreach::foreach(station = GHCN.data.final$climatology, .combine = c) %do% {
+                                                                               
+                                                                               return(sdModulator(data.df = station,
+                                                                                                  temp.change.sd = change,
+                                                                                                  t.base = base,
+                                                                                                  t.cap = 30))
+                                                                               
+                                                                             }
+                                                                             
+                                                                             names(GHCN.GDDs) <- names(GHCN.data.final$climatology)
+                                                                             
+                                                                             return(tibble::tibble(SD_change = change,
+                                                                                                   ID = names(GHCN.GDDs),
+                                                                                                   GDD = GHCN.GDDs))
+                                                                           }
+                                              names(out.list) <- sample.points
+                                              
+                                              return(out.list %>% 
+                                                       dplyr::bind_rows() %>%
+                                                       dplyr::left_join(GHCN.data.final$spatial %>% 
+                                                                          dplyr::as_data_frame() %>% 
+                                                                          dplyr::rename(x = LONGITUDE, y = LATITUDE), by = "ID"))
+                                            }
 names(GHCN.GDD.incremented.sd) <- GDDs
 
 # stop the cluster (will free memory)
@@ -704,18 +698,7 @@ chronometric_data %<>%
                         sf::st_as_sf() %>%
                         sf::st_transform("+proj=longlat") %>%
                         sf::st_geometry()) %>%
-  sf::st_intersection(out("DATA/NaturalEarth/ne_10m_admin_0_countries_lakes/ne_10m_admin_0_countries_lakes.shp") %>%
-                        sf::st_read()  %>%
-                        crop_custom(ASIA_poly) %>%
-                        dplyr::filter(!(NAME %in% c("Indonesia",
-                                                    "Scarborough Reef",
-                                                    "Malaysia",
-                                                    "Philippines",
-                                                    "Maldives",
-                                                    "Spratly Is.",
-                                                    "Oman",
-                                                    "United Arab Emirates",
-                                                    "Saudi Arabia"))) %>%
+  sf::st_intersection(countries %>%
                         sf::st_union() %>%
                         sf::st_transform("+proj=longlat")) %>%
   dplyr::as_data_frame() %>%
@@ -855,6 +838,24 @@ sites <- chronometric_data %>%
   sf::st_as_sf(coords = c("Longitude", "Latitude")) %>%
   sf::st_set_crs("+proj=longlat")
 
+# Map the sites
+cairo_pdf(out("FIGURES/crop_map.pdf"), width = 7.2, height = 7)
+print(sites %>%
+        dplyr::filter(Crop != "buckwheat") %>%
+        dplyr::mutate(Crop = dplyr::recode_factor(Crop,
+                                                  foxtail_millet = "Foxtail millet",
+                                                  broomcorn_millet = "Broomcorn millet",
+                                                  wheat = "Wheat",
+                                                  barley = "Barley")) %>%
+        ggplot() +
+        geom_sf(data = countries) +
+        geom_sf(aes(colour = Crop),
+                size = 0.1) +
+        theme_minimal(base_size = 7) +
+        theme(legend.position="none") + 
+        ggplot2::facet_wrap( ~ Crop, ncol = 2))
+dev.off()
+
 # A function to extract niches for each crop
 extract_niches <- function(x){
   out_niche <- raster::brick(out("RECONS/All_",x$Crop[[1]],"_Z.nc")) %>%
@@ -952,10 +953,10 @@ p <- niche_densities %>%
   dplyr::filter(!purrr::map_lgl(Niche, is.null),
                 Crop != "buckwheat") %>%
   dplyr::mutate(Crop = dplyr::recode_factor(Crop,
-                                             foxtail_millet = "Foxtail millet",
-                                             broomcorn_millet = "Broomcorn millet",
-                                             wheat = "Wheat",
-                                             barley = "Barley")) %>%
+                                            foxtail_millet = "Foxtail millet",
+                                            broomcorn_millet = "Broomcorn millet",
+                                            wheat = "Wheat",
+                                            barley = "Barley")) %>%
   dplyr::mutate(Density_Median = marcott2013$YearBP[purrr::map_int(Density, "Median")],
                 Density_Lower = marcott2013$YearBP[purrr::map(Density, "CI") %>%
                                                      purrr::map_dbl("lower")],
@@ -984,6 +985,7 @@ p <- niche_densities %>%
 
 cairo_pdf(out("FIGURES/All_crossplot.pdf"), width = 7.2, height = 5.91)
 print(p +
+        theme_minimal(base_size = 7) +
         theme(legend.position="none") + 
         ggplot2::facet_wrap( ~ Crop, ncol=2))
 dev.off()
@@ -997,7 +999,7 @@ file.copy("All_crossplot.html",
 unlink("All_crossplot.html")
 
 # Write out a table
-niche_densities %>%
+niche_densities_extract <- niche_densities %>%
   dplyr::filter(!purrr::map_lgl(Niche, is.null)) %>%
   dplyr::mutate(`Age median (BP)` = marcott2013$YearBP[purrr::map_int(Density, "Median")],
                 `Age lower CI (BP)` = marcott2013$YearBP[purrr::map(Density, "CI") %>% 
@@ -1017,8 +1019,34 @@ niche_densities %>%
                                             wheat = "Wheat",
                                             barley = "Barley",
                                             buckwheat = "Buckwheat")) %>%
-  dplyr::arrange(Site, Period, Crop) %>%
+  dplyr::arrange(Site, Period, Crop) %T>%
   readr::write_csv(out("TABLES/age_niche_estimates.csv"))
+
+# Plot relationship between number of crops and age
+cairo_pdf(out("FIGURES/Age_counts.pdf"),
+          width = 3.5,
+          height = 2)
+print({
+  niche_densities_extract %>%
+    dplyr::filter(Crop != "Buckwheat") %>%
+    dplyr::select(-Crop) %>%
+    dplyr::group_by(Site, Period) %>%
+    dplyr::summarise_all(.funs = mean) %>%
+    dplyr::left_join(niche_densities_extract %>%
+                       dplyr::group_by(Site, Period) %>%
+                       dplyr::count(),
+                     by = c("Site", "Period")) %>%
+    dplyr::rename(`Number of crops` = n) %>%
+    ggplot() +
+    geom_point(aes(x = `Number of crops`,
+                   y = `Niche probability median`),
+               size = 1) +
+    geom_smooth(aes(x = `Number of crops`,
+                    y = `Niche probability median`),
+                method = "lm")+
+    theme_minimal(base_size = 7)
+})
+dev.off()
 
 ##### END CHRONOMETRIC ANALYSIS #####
 
@@ -1192,6 +1220,98 @@ for(n in 1:nrow(crops)){
     
   }
 }
+
+# Create a static plot for paper publication
+# A function to extract data from a crop raster brick
+tidyCrop <- function(x){
+  x %>%
+    out("RECONS/All_",.,"_Z.nc") %>%
+    raster::brick() %>%
+    magrittr::extract2(stringr::str_c("X",years)) %>%
+    raster:::readAll() %>%
+    magrittr::divide_by(100) %>%
+    as("SpatialPixelsDataFrame") %>%
+    as_tibble() %>%
+    tidyr::gather(Year, Niche, -x:-y) %>%
+    dplyr::rename(Longitude = x,
+                  Latitude = y) %>%
+    dplyr::mutate(Year = gsub(pattern = "X",
+                              replacement = "",
+                              x = Year),
+                  Year = factor(Year, levels = years),
+                  Year = forcats::fct_relabel(Year, function(x){stringr::str_c(x," cal. BP")}),
+                  Crop = x)
+}
+
+# A color palette for filling
+pal <- c(rev(colorRampPalette(brewer.pal(9, "Blues")[2:9],
+                              bias = 2,
+                              space = "Lab")(76)),
+         colorRampPalette(brewer.pal(9, "Reds")[2:9],
+                          bias = 1.5,
+                          space = "Lab")(26))
+
+# A function to create a plot of years and crops
+facet_niche <- function(crops, years){
+  these_sites <- years %>%
+    map(function(year){
+      site_densities %>%
+        dplyr::mutate(Year = year) %>%
+        dplyr::filter(Density_Lower <= Year & Density_Upper >= Year,
+                      Crop %in% crops) %>%
+        dplyr::mutate(Longitude = sf::st_coordinates(geometry)[,"X"],
+                      Latitude = sf::st_coordinates(geometry)[,"Y"]) %>%
+        dplyr::select(Site, Longitude, Latitude, Crop, Year)
+    }) %>%
+    dplyr::bind_rows() %>%
+    dplyr::mutate(Year = factor(Year, levels = years),
+                  Year = forcats::fct_relabel(Year, function(x){stringr::str_c(x," cal. BP")}),
+                  Crop = dplyr::recode_factor(Crop,
+                                              wheat = "Wheat",
+                                              barley = "Barley",
+                                              broomcorn_millet = "Broomcorn millet",
+                                              foxtail_millet = "Foxtail millet"))
+  
+  these_rasters <- crops %>%
+    purrr::map(tidyCrop) %>%
+    dplyr::bind_rows() %>%
+    dplyr::mutate(Crop = dplyr::recode_factor(Crop,
+                                              wheat = "Wheat",
+                                              barley = "Barley",
+                                              broomcorn_millet = "Broomcorn millet",
+                                              foxtail_millet = "Foxtail millet"))
+  
+  p <- these_rasters %>%
+    ggplot() +
+    geom_raster(mapping = aes(x = Longitude, 
+                              y = Latitude, 
+                              fill = Niche)) +
+    scale_fill_gradientn(colours = pal,
+                         limits=c(0, 1),
+                         name = "Probability of\nbeing in niche") +
+    geom_point(data = these_sites,
+               mapping = aes(x = Longitude, 
+                             y = Latitude),
+               size = 1) +
+    coord_quickmap() +
+    facet_grid(Crop ~ Year,
+               switch = "y")
+  
+  return(p)
+} 
+
+cairo_pdf(out("FIGURES/facet_niche.pdf"), width = 7.2, height = 8.25)
+print({
+  facet_niche(crops = c("wheat", "barley", "broomcorn_millet", "foxtail_millet"),
+              years = c(4030, 3550, 1690)) +
+    scale_y_continuous(position = "right") +
+    # xlab("") + 
+    # ylab("") +
+    theme_minimal(base_size = 7) +
+    theme(strip.text.x = element_text(size = 8),
+          strip.text.y = element_text(size = 8))
+})
+dev.off()
 
 message("Plotting of crop niche reconstructions complete: ", capture.output(Sys.time() - time_check))
 
