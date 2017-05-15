@@ -1,6 +1,6 @@
 # Output
-/OUTPUT
-/OUTPUT/*
+./OUTPUT
+./OUTPUT/*
 
 # Mac trash files
 .DS_Store
