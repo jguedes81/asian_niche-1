@@ -5,7 +5,7 @@
 #install.packages("devtools")
 # devtools::install_cran("FedData")
 # Python-style argument parsing
-FedData::pkg_test("optparse")
+library("optparse")
 
 # Set the number of parallel cores
 # We'll be using the snow-like functionality with Rmpi
@@ -41,13 +41,14 @@ message("asian_niche.R started at ", start_time)
 
 ## Load all packages
 all_packages <- c("foreach", "doParallel", # Packages for parallel processeing
+                  "FedData", # Package for data aquisition
                   "R.utils", "Hmisc", "zoo", "abind", "mgcv", "rgbif", "fields", # Packages offering general utilities
                   "sf", "rgdal", "ncdf4", "raster", "geomapdata", "maptools", "mapproj", # Packages for spatial processing
                   "Bchron", "mclust", # Packages for chronometric analysis
-                  "magrittr", "tidyverse", "ggthemes", # Packages for tidy code
+                  "magrittr", "tidyverse", "ggthemes", "purrrlyr", # Packages for tidy code
                   "RColorBrewer", "htmlwidgets", "plotly") # Plotting
 
-junk <- lapply(all_packages, FedData::pkg_test)
+purrr::walk(all_packages, library, character.only = TRUE)
 
 # Load all functions
 list.files("./src",full.names=T) %>%
@@ -702,7 +703,7 @@ chronometric_data %<>%
                         sf::st_union() %>%
                         sf::st_transform("+proj=longlat")) %>%
   dplyr::as_data_frame() %>%
-  dplyr::select(-geoms) %>%
+  dplyr::select(-geometry) %>%
   magrittr::set_names(chronometric_names)
 
 # Write table of dates
@@ -751,14 +752,14 @@ densities <- chronometric_data %>%
                 `1-sigma uncertainty`,
                 `Age range lower (BP)`,
                 `Age range upper (BP)`) %>%
-  purrr::by_row(calibrate_density, # Generate probability densities for 14C dates and age ranges
+  purrrlyr::by_row(calibrate_density, # Generate probability densities for 14C dates and age ranges
                 .to = "Density") %>%
   dplyr::mutate(Prediction = purrr::map(Density, # Extract probabilities for Marcott years
                                         extract_density,
                                         vect = marcott2013$YearBP)) %>%
   dplyr::select(Site, Period, Prediction) %>%
   dplyr::group_by(Site, Period) %>%
-  purrr::by_slice(map,~ Reduce(x = .x, f = "+"), .to = "Density") %>% # Sum probabilities over sites and periods (as in Oxcal SUM command)
+  purrrlyr::by_slice(map,~ Reduce(x = .x, f = "+"), .to = "Density") %>% # Sum probabilities over sites and periods (as in Oxcal SUM command)
   dplyr::mutate(Density = map(Density, "Prediction"),
                 Density = map(Density, ~ .x / sum(.x, na.rm = T))) # re-normalize to 1
 
@@ -1223,7 +1224,7 @@ for(n in 1:nrow(crops)){
 
 # Create a static plot for paper publication
 # A function to extract data from a crop raster brick
-tidyCrop <- function(x){
+tidyCrop <- function(x, years){
   x %>%
     out("RECONS/All_",.,"_Z.nc") %>%
     raster::brick() %>%
@@ -1273,7 +1274,7 @@ facet_niche <- function(crops, years){
                                               foxtail_millet = "Foxtail millet"))
   
   these_rasters <- crops %>%
-    purrr::map(tidyCrop) %>%
+    purrr::map(tidyCrop, years = years) %>%
     dplyr::bind_rows() %>%
     dplyr::mutate(Crop = dplyr::recode_factor(Crop,
                                               wheat = "Wheat",

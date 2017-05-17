@@ -46,7 +46,12 @@ git clone https://github.com/bocinsky/asian_niche.git
 
 ### Running the Docker container
 ```bash
-docker run -it ubuntu bash
+docker run -v /Users/bocinsky/git/asian_niche:/asian_niche -dp 8787:8787 bocinsky/asian_niche:latest
+
+docker run -v /Users/bocinsky/git/asian_niche:/asian_niche -w /asian_niche -it bocinsky/asian_niche:latest bash
+
+docker run -v /Users/bocinsky/git/asian_niche:/asian_niche -w /asian_niche bocinsky/asian_niche:latest Rscript --vanilla asian_niche.R
+
 
 ```
 
