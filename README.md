@@ -1,5 +1,5 @@
 <!-- README.md is generated from README.Rmd. Please edit that file -->
-[![Last-changedate](https://img.shields.io/badge/last%20change-2017--05--15-brightgreen.svg)](https://github.com/bocinsky/asian_niche/commits/master) [![minimal R version](https://img.shields.io/badge/R%3E%3D-3.4.0-brightgreen.svg)](https://cran.r-project.org/) [![Licence](https://img.shields.io/github/license/mashape/apistatus.svg)](http://choosealicense.com/licenses/mit/) <!-- [![Zenodo DOI](https://zenodo.org/badge/23774237.svg)](https://zenodo.org/badge/latestdoi/23774237) -->
+[![Last-changedate](https://img.shields.io/badge/last%20change-2017--05--17-brightgreen.svg)](https://github.com/bocinsky/asian_niche/commits/master) [![minimal R version](https://img.shields.io/badge/R%3E%3D-3.4.0-brightgreen.svg)](https://cran.r-project.org/) [![Licence](https://img.shields.io/github/license/mashape/apistatus.svg)](http://choosealicense.com/licenses/mit/) <!-- [![Zenodo DOI](https://zenodo.org/badge/23774237.svg)](https://zenodo.org/badge/latestdoi/23774237) -->
 
 Research compendium for d'Alpoim Guedes and Bocinsky *in review*
 ----------------------------------------------------------------
@@ -17,15 +17,43 @@ R. Kyle Bocinsky (<bocinsky@gmail.com>) Jade d'Alpoim Guedes
 
 ### Overview of contents
 
-This repository is a research compendium for d'Alpoim Guedes and Bocinsky (in review). The compendium contains all code associated with the analyses described and presented in the publication. The `asian_niche.R` script runs the entire analysis, and is designed to be called from the command prompt. `asian_niche.srun` is the configuration script for the [Slurm Workload Manager](https://slurm.schedmd.com/) that was used to run this analysis on the [Kamiak high performance computing cluster](https://hpc.wsu.edu/) at Washington State University---but the `asian_niche.R` script can be run on its own. The `src/` directory contains R code for functions used in the `asian_niche.R` script.
+This repository is a research compendium for d'Alpoim Guedes and Bocinsky (in review). The compendium contains all code associated with the analyses described and presented in the publication, as well as a Docker environment (described in the `Dockerfile`) for running the code. The `asian_niche.R` script runs the entire analysis, and is designed to be called from the command prompt. `asian_niche.srun` is the configuration script for the [Slurm Workload Manager](https://slurm.schedmd.com/) that was used to run this analysis on the [Kamiak high performance computing cluster](https://hpc.wsu.edu/) at Washington State University---but the `asian_niche.R` script can be run on its own. The `src/` directory contains R code for functions used in the `asian_niche.R` script.
 
-### Downloading this research compendium
+### The research compendium
 
 To download this research compendium as you see it on GitHub, for offline browsing, [install git on your computer](https://git-scm.com/) and use this line at the shell prompt:
 
 ``` bash
 git clone https://github.com/bocinsky/asian_niche.git
 ```
+
+### Archaeological site data
+
+### The Docker container
+
+[Docker](https://www.docker.com/) is a virtual computing environment that facilitates reproducible research---it allows for research results to be produced independent of the machine on which they are computed. Docker users describe computing environments in a text format called a "Dockerfile", which when read by the Docker software builds a virtual machine, or "container". Other users can then load the container on their own computers. Users can upload container images to [Docker Hub](https://hub.docker.com/), and the image for this research is available at <https://hub.docker.com/r/bocinsky/asian_niche/>.
+
+We have included a Dockerfile which builds a Docker container for running the analyses described in the paper. It uses [`rocker/verse:3.4.0`](https://hub.docker.com/r/rocker/verse/) (which provides R, [RStudio Server](https://www.rstudio.com/products/rstudio/download-server/), and the [tidyverse](http://tidyverse.org/)) as its base image and adds several geospatial software packages ([GDAL](http://www.gdal.org/), [GEOS](https://trac.osgeo.org/geos/), and [proj.4](http://proj4.org/)), as well as the R software packages required by the script.
+
+#### Downloading and running the Docker container image
+
+``` bash
+docker run -v /Users/bocinsky/git/asian_niche:/asian_niche -dp 8787:8787 bocinsky/asian_niche:latest
+
+docker run -v /Users/bocinsky/git/asian_niche:/asian_niche -w /asian_niche -it bocinsky/asian_niche:latest bash
+
+docker run -v /Users/bocinsky/git/asian_niche:/asian_niche -w /asian_niche bocinsky/asian_niche:latest Rscript --vanilla asian_niche.R
+```
+
+#### Building the Docker container
+
+If you wish to build the Docker container for this project from scratch, simply `cd` into the `asian_niche/` directory and run:
+
+``` bash
+docker build -t asian_niche - < Dockerfile
+```
+
+The `-t` argument gives the resulting container image a name, and the `- < Dockerfile` argument instructs Docker to build independently of the
 
 ### Opening and running the RStudio project
 

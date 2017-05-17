@@ -35,25 +35,50 @@ Jade d'Alpoim Guedes
 
 ### Overview of contents
 
-This repository is a research compendium for d'Alpoim Guedes and Bocinsky (in review). The compendium contains all code associated with the analyses described and presented in the publication. The `asian_niche.R` script runs the entire analysis, and is designed to be called from the command prompt. `asian_niche.srun` is the configuration script for the [Slurm Workload Manager](https://slurm.schedmd.com/) that was used to run this analysis on the [Kamiak high performance computing cluster](https://hpc.wsu.edu/) at Washington State University---but the `asian_niche.R` script can be run on its own. The `src/` directory contains R code for functions used in the `asian_niche.R` script.
+This repository is a research compendium for d'Alpoim Guedes and Bocinsky (in review). The compendium contains all code associated with the analyses described and presented in the publication, as well as a Docker environment (described in the `Dockerfile`) for running the code. The `asian_niche.R` script runs the entire analysis, and is designed to be called from the command prompt. `asian_niche.srun` is the configuration script for the [Slurm Workload Manager](https://slurm.schedmd.com/) that was used to run this analysis on the [Kamiak high performance computing cluster](https://hpc.wsu.edu/) at Washington State University---but the `asian_niche.R` script can be run on its own. The `src/` directory contains R code for functions used in the `asian_niche.R` script.
 
-### Downloading this research compendium
+### The research compendium
 To download this research compendium as you see it on GitHub, for offline browsing, [install git on your computer](https://git-scm.com/) and use this line at the shell prompt:
 
 ```bash
 git clone https://github.com/bocinsky/asian_niche.git
 ```
 
-### Running the Docker container
+### Archaeological site data
+
+
+### The Docker container
+[Docker](https://www.docker.com/) is a virtual computing environment that facilitates reproducible research---it allows for research results to be produced independent of the machine on which they are computed. Docker users describe computing environments in a text format called a "Dockerfile", which when read by the Docker software builds a virtual machine, or "container". Other users can then load the container on their own computers. Users can upload container images to [Docker Hub](https://hub.docker.com/), and the image for this research is available at [https://hub.docker.com/r/bocinsky/asian_niche/](https://hub.docker.com/r/bocinsky/asian_niche/).
+
+We have included a Dockerfile which builds a Docker container for running the analyses described in the paper. It uses [`rocker/verse:3.4.0`](https://hub.docker.com/r/rocker/verse/) (which provides R, [RStudio Server](https://www.rstudio.com/products/rstudio/download-server/), and the [tidyverse](http://tidyverse.org/)) as its base image and adds several geospatial software packages ([GDAL](http://www.gdal.org/), [GEOS](https://trac.osgeo.org/geos/), and [proj.4](http://proj4.org/)), as well as the R software packages required by the script.
+
+#### Downloading and running the Docker container image
+The commands below demonstrate three ways to run the docker container. In each, we use the `-v` argument to mount the local `asian_niche` directory (cloned from GitHub above, or dowloaded from Zenodo) to the running container, and we use the `-w` argument to set the working directory to `/asian_niche`. See this [Docker cheat sheet](https://github.com/wsargent/docker-cheat-sheet) for other arguments. **Make sure you are running these commands from within the `asian_niche/` directory!**
+
+To run the analyses directly, call the `asian_niche.R` script at the end of the run command:
 ```bash
-docker run -v /Users/bocinsky/git/asian_niche:/asian_niche -dp 8787:8787 bocinsky/asian_niche:latest
-
-docker run -v /Users/bocinsky/git/asian_niche:/asian_niche -w /asian_niche -it bocinsky/asian_niche:latest bash
-
-docker run -v /Users/bocinsky/git/asian_niche:/asian_niche -w /asian_niche bocinsky/asian_niche:latest Rscript --vanilla asian_niche.R
-
-
+docker run -v .:/asian_niche -w /asian_niche bocinsky/asian_niche:latest 'Rscript --vanilla asian_niche.R'
 ```
+
+Alternatively, you can run the container in interactive mode and load the script yourself:
+```bash
+docker run -v .:/asian_niche -w /asian_niche -it bocinsky/asian_niche:latest bash
+```
+
+Finally, you can host RStudio Server locally to use the RStudio browser-based IDE. Run:
+```bash
+docker run -v .:/asian_niche -w /asian_niche -dp 8787:8787 bocinsky/asian_niche:latest
+```
+Then, open a browser (we find [Chrome](https://www.google.com/chrome/) works best) and navigate to "localhost:8787" or or run `docker-machine ip default` in the shell to find the correct IP address, and log in with **rstudio**/**rstudio** as the user name and password. 
+
+#### Building the Docker container
+If you wish to build the Docker container for this project from scratch, simply `cd` into the `asian_niche/` directory and run:
+
+```bash
+docker build -t asian_niche - < Dockerfile
+```
+
+The `-t` argument gives the resulting container image a name, and the `- < Dockerfile` argument instructs Docker to build independently of the 
 
 ### Opening and running the RStudio project
 This repository is organized as an [RStudio](https://www.rstudio.com/) project---it is best viewed using the RStudio integrated development environment for R. Begin by [installing RStudio](https://www.rstudio.com/products/rstudio/download2/), and then open the `asian_niche.Rproj` file in the downloaded directory.
