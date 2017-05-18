@@ -1,6 +1,12 @@
+# Restricted data
+/DATA/DALPOIMGUEDES_BOCINSKY_2017.xlsx
+
 # Output
 /OUTPUT
 /OUTPUT/*
+
+# Tar archives for Zenodo
+*.tar.gz
 
 # Mac trash files
 .DS_Store

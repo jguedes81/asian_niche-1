@@ -46,7 +46,7 @@ all_packages <- c("foreach", "doParallel", # Packages for parallel processeing
                   "sf", "rgdal", "ncdf4", "raster", "geomapdata", "maptools", "mapproj", # Packages for spatial processing
                   "Bchron", "mclust", # Packages for chronometric analysis
                   "magrittr", "tidyverse", "ggthemes", "purrrlyr", # Packages for tidy code
-                  "RColorBrewer", "htmlwidgets", "plotly") # Plotting
+                  "RColorBrewer", "htmlwidgets", "plotly", "bibtex", "knitcitations") # Plotting and rmarkdown
 
 purrr::walk(all_packages, library, character.only = TRUE)
 
@@ -661,27 +661,29 @@ message("Plotting of cultivar niche reconstructions complete: ", capture.output(
 message("Beginning chronometric co-analysis")
 
 # Read in the site/chronometric data
-chronometric_data <- readr::read_csv("DATA/chronometric_data.csv",
-                                     col_types = cols(
-                                       .default = col_logical(),
-                                       Site = col_character(),
-                                       Period = col_integer(),
-                                       Longitude = col_double(),
-                                       Latitude = col_double(),
-                                       `Exclude?` = col_logical(),
-                                       `Notes` = col_character(),
-                                       `Lab sample identifier` = col_character(),
-                                       Material = col_character(),
-                                       `14C age BP` = col_integer(),
-                                       `1-sigma uncertainty` = col_integer(),
-                                       `Age range (BC/AD)` = col_character(),
-                                       `Age range lower (BP)` = col_integer(),
-                                       `Age range upper (BP)` = col_integer(),
-                                       Reference = col_character()
-                                     )) %>%
+chronometric_data <- readxl::read_excel("DATA/DALPOIMGUEDES_BOCINSKY_2017.xlsx",
+                                        sheet = "chronometric_data",
+                                        col_types = c("text",
+                                                      "numeric",
+                                                      "numeric",
+                                                      "numeric",
+                                                      "logical",
+                                                      "text",
+                                                      "text",
+                                                      "text",
+                                                      "logical",
+                                                      "numeric",
+                                                      "numeric",
+                                                      "text",
+                                                      "numeric",
+                                                      "numeric",
+                                                      "text",
+                                                      rep("logical",18))
+) %>%
   tibble::as_tibble() %>%
   dplyr::mutate(`Exclude?` = ifelse(is.na(`Exclude?`), FALSE, `Exclude?`)) %>%
-  dplyr::filter(!is.na(Longitude),
+  dplyr::filter(!is.na(Site),
+                !is.na(Longitude),
                 !is.na(Latitude),
                 !(is.na(`14C age BP`) & is.na(`Age range lower (BP)`)),
                 !is.na(`14C date on cereal?`),
@@ -753,7 +755,7 @@ densities <- chronometric_data %>%
                 `Age range lower (BP)`,
                 `Age range upper (BP)`) %>%
   purrrlyr::by_row(calibrate_density, # Generate probability densities for 14C dates and age ranges
-                .to = "Density") %>%
+                   .to = "Density") %>%
   dplyr::mutate(Prediction = purrr::map(Density, # Extract probabilities for Marcott years
                                         extract_density,
                                         vect = marcott2013$YearBP)) %>%
@@ -1323,6 +1325,13 @@ unlink(out("session_info.txt"))
 devtools::session_info() %>%
   capture.output() %>%
   readr::write_lines(out("session_info.txt"))
+
+# Output all package citations
+unlink(out("packages.bib"))
+bibtex::write.bib(all_packages, out("packages.bib"))
+
+# Render the README.Rmd file
+rmarkdown::render("README.Rmd")
 
 message("asian_niche.R complete! Total run time: ", capture.output(Sys.time() - start_time))
 
