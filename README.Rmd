@@ -18,7 +18,7 @@ library(magrittr)
 [![Last-changedate](https://img.shields.io/badge/last%20change-`r gsub('-', '--', Sys.Date())`-brightgreen.svg)](https://github.com/bocinsky/asian_niche/commits/master) 
 [![minimal R version](https://img.shields.io/badge/R%3E%3D-`r as.character(getRversion())`-brightgreen.svg)](https://cran.r-project.org/)
 [![Licence](https://img.shields.io/github/license/mashape/apistatus.svg)](http://choosealicense.com/licenses/mit/) 
-<!-- [![Zenodo DOI](https://zenodo.org/badge/23774237.svg)](https://zenodo.org/badge/latestdoi/23774237) -->
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.580819.svg)](https://doi.org/10.5281/zenodo.580819)
 
 ## Research compendium for d'Alpoim Guedes and Bocinsky *in review*
 
@@ -26,7 +26,7 @@ d'Alpoim Guedes, Jade and R. Kyle Bocinsky. Climate change stimulated agricultur
 
 ### Compendium DOI: 
  
-<!-- http://dx.doi.org/xxxxxxx -->
+[https://doi.org/10.5281/zenodo.580819](https://doi.org/10.5281/zenodo.580819)
 
 The files at the URL above will generate the results as found in the publication. The files hosted at [https://github.com/bocinsky/asian_niche](https://github.com/bocinsky/asian_niche) are the development versions and may have changed since this compendium was released.
 
