@@ -1,5 +1,5 @@
 <!-- README.md is generated from README.Rmd. Please edit that file -->
-[![Last-changedate](https://img.shields.io/badge/last%20change-2017--05--18-brightgreen.svg)](https://github.com/bocinsky/asian_niche/commits/master) [![minimal R version](https://img.shields.io/badge/R%3E%3D-3.3.3-brightgreen.svg)](https://cran.r-project.org/) [![Licence](https://img.shields.io/github/license/mashape/apistatus.svg)](http://choosealicense.com/licenses/mit/) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.580819.svg)](https://doi.org/10.5281/zenodo.580819)
+[![Last-changedate](https://img.shields.io/badge/last%20change-2017--05--18-brightgreen.svg)](https://github.com/bocinsky/asian_niche/commits/master) [![minimal R version](https://img.shields.io/badge/R%3E%3D-3.3.3-brightgreen.svg)](https://cran.r-project.org/) [![Licence](https://img.shields.io/github/license/mashape/apistatus.svg)](http://choosealicense.com/licenses/mit/) [![DOI](https://zenodo.org/badge/52899692.svg)](https://zenodo.org/badge/latestdoi/52899692)
 
 Research compendium for d'Alpoim Guedes and Bocinsky *in review*
 ----------------------------------------------------------------
@@ -8,7 +8,7 @@ d'Alpoim Guedes, Jade and R. Kyle Bocinsky. Climate change stimulated agricultur
 
 ### Compendium DOI:
 
-<https://doi.org/10.5281/zenodo.580819>
+[![DOI](https://zenodo.org/badge/52899692.svg)](https://zenodo.org/badge/latestdoi/52899692)
 
 The files at the URL above will generate the results as found in the publication. The files hosted at <https://github.com/bocinsky/asian_niche> are the development versions and may have changed since this compendium was released.
 
