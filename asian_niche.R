@@ -299,7 +299,7 @@ message("Modulation of local climatology by Marcott et al. 2013 data complete: "
 
 
 
-##### INTERPOLATE CROP NICHE #####
+##### GENERATE CROP NICHE MODELS #####
 
 message("Calculating indicator Krige models")
 time_check <-  Sys.time()
@@ -354,6 +354,19 @@ if(nrow(crop_GDD_run) == 0){
               " cultivars:\n",
               paste0(capture.output(crop_GDD_run), collapse = "\n"))
 
+# A function to reduce the size of a loess model by half
+skinny.loess <- function(x){
+  x[c("fitted",
+      "residuals",
+      "enp",
+      "one.delta",
+      "two.delta",
+      "trace.hat",
+      "call",
+      "terms",
+      "xnames")] <- NULL
+  return(x)
+}
 
 # A function of correct the indication predictions and estimate a smooth
 # monotonic function
@@ -361,7 +374,8 @@ if(nrow(crop_GDD_run) == 0){
 smooth.preds <- function(y){
   y[y<0] <- 0
   y[y>1] <- 1
-  y <- loess(isoreg(y~sample.points)$yf~sample.points, span=0.1, degree=1)
+  y <- loess(isoreg(y~sample.points)$yf~sample.points, span=0.1, degree=1) %>%
+    skinny.loess()
   return(y)
 }
 
@@ -374,7 +388,12 @@ if(nrow(crop_GDD_run) > 0){
   chunk_size <- 10000
   
   gdd.models <- foreach::foreach(crop = 1:nrow(crop_GDD_run),
-                                 .packages = c("fields","dplyr","magrittr","foreach","doParallel","readr"),
+                                 .packages = c("fields",
+                                               "dplyr",
+                                               "magrittr",
+                                               "foreach",
+                                               "doParallel",
+                                               "readr"),
                                  .export = c("sample.points")) %dopar% {
                                    
                                    # Threshold for indicator kriging
@@ -396,9 +415,15 @@ if(nrow(crop_GDD_run) > 0){
   stopCluster(cl)
   
 }
+
+rm(ASIA_rast_etopo5,
+   ASIA_rast_etopo5.sp,
+   GHCN.data.final,
+   GHCN.GDD.incremented.sd)
+
 message("Calculation indicator Krige models complete: ", capture.output(Sys.time() - time_check))
 
-##### END INTERPOLATE CROP NICHE #####
+##### END GENERATE CROP NICHE MODELS #####
 
 
 
@@ -414,83 +439,61 @@ if(opt$clean){
 }
 dir.create(out("RECONS/"), showWarnings = F)
 
-predictor <- function(x, newdata){
-  x %>%
-    predict(newdata = newdata) %>%
-    magrittr::multiply_by(100) %>% 
-    round() %>%
-    tibble::as_tibble()
-}
-
-# cl <- makeCluster(opt$cores, type = "PSOCK")
-cl <- makeCluster(min(opt$cores,5), type = "PSOCK")
-registerDoParallel(cl)
-
-gdd.recons <- foreach::foreach(crop = crop_GDD$cultivar,
-                               .packages = c("magrittr",
-                                             "foreach"),
-                               .combine = c) %dopar% {
-                                 
-                                 if(!file.exists(out("MODELS/",crop,"_models.rds"))) stop("Models for ",
-                                                                                          crop,
-                                                                                          " are missing! Aborting.")
-                                 
-                                 crop.recons <- out("RECONS/",crop,"_",c("Z_Lower","Z","Z_Upper"),".nc")
-                                 if(all(file.exists(crop.recons))) return(crop.recons)
-                                 
-                                 crop.models <- readr::read_rds(out("MODELS/",crop,"_models.rds"))
-                                 
-                                 crop.models@data %<>%
-                                   tibble::as_tibble()
-                                 
-                                 out.files <- foreach::foreach(Zs = c("Z_Lower","Z","Z_Upper"),
-                                                               .combine = c) %do% {
-                                                                 
-                                                                 if(file.exists(out("RECONS/",crop,"_",Zs,".nc"))) 
-                                                                   return(out("RECONS/",crop,"_",Zs,".nc"))
-                                                                 
-                                                                 out_models <- crop.models
-                                                                 
-                                                                 gc();gc()
-                                                                 
-                                                                 out_models@data %<>%
-                                                                   dplyr::mutate(Zs = lapply(X = model,
-                                                                                             FUN = predictor,
-                                                                                             newdata = marcott2013[[Zs]])) %$%
-                                                                   Zs %>%
-                                                                   dplyr::bind_cols() %>%
-                                                                   t() %>%
-                                                                   tibble::as_tibble() %>%
-                                                                   magrittr::set_colnames(marcott2013$YearBP)
-                                                                 
-                                                                 out_models %>%
-                                                                   as("SpatialPixelsDataFrame") %>%
-                                                                   raster::brick() %>%
-                                                                   raster::setZ(marcott2013$YearBP, name="Years BP") %>%
-                                                                   raster::writeRaster(out("RECONS/",crop,"_",Zs,".nc"),
-                                                                                       format = "CDF",
-                                                                                       datatype = "INT2S",
-                                                                                       varname = "niche_probability",
-                                                                                       varunit = "unitless", 
-                                                                                       longname = "Probability of being in the crop niche x 100",
-                                                                                       xname = "Longitude",
-                                                                                       yname = "Latitude",
-                                                                                       zname = "Years BP",
-                                                                                       zunit = "Years BP",
-                                                                                       compression = 9,
-                                                                                       overwrite = TRUE)
-                                                                 
-                                                                 rm(out_models)
-                                                                 gc();gc()
-                                                                 
-                                                                 return(out("RECONS/",crop,"_",Zs,".nc"))
-                                                                 
-                                                               }
-                                 return(out.files)
-                               }
-
-# stop the cluster (will free memory)
-stopCluster(cl)
+purrr::walk(crop_GDD$cultivar, function(crop){
+  
+  if(!file.exists(out("MODELS/",crop,"_models.rds"))) stop("Models for ",
+                                                           crop,
+                                                           " are missing! Aborting.")
+  Zs <- c("Z_Lower","Z","Z_Upper")
+  Zs %<>%
+    magrittr::extract({
+      Zs %>%
+        out("RECONS/",crop,"_",.,".nc") %>%
+        file.exists() %>%
+        magrittr::not()
+    })
+  
+  if(length(Zs)==0) return()
+  
+  crop.models <- readr::read_rds(out("MODELS/",crop,"_models.rds"))
+  
+  purrr::walk(Zs, .f = function(z){
+    suppressWarnings(
+      crop.models@data %$%
+        model %>%
+        purrr::map(.f = function(x){
+          x %>%
+            predict(newdata = marcott2013[[z]]) %>%
+            magrittr::multiply_by(100) %>% 
+            round()
+        }) %>%
+        do.call(rbind, .) %>%
+        tibble::as_tibble() %>%
+        magrittr::set_colnames(marcott2013$YearBP) %>%
+        new("SpatialPointsDataFrame",
+            data = .,
+            coords.nrs = crop.models@coords.nrs,
+            coords = crop.models@coords,
+            bbox = crop.models@bbox,
+            proj4string = crop.models@proj4string) %>%
+        as("SpatialPixelsDataFrame") %>%
+        raster::brick() %>%
+        raster::setZ(marcott2013$YearBP, name="Years BP") %>%
+        raster::writeRaster(out("RECONS/",crop,"_",z,".nc"),
+                            format = "CDF",
+                            datatype = "INT2S",
+                            varname = "niche_probability",
+                            varunit = "unitless", 
+                            longname = "Probability of being in the crop niche x 100",
+                            xname = "Longitude",
+                            yname = "Latitude",
+                            zname = "Years BP",
+                            zunit = "Years BP",
+                            compression = 9,
+                            overwrite = TRUE)
+    )
+  })
+})
 
 message("Generation of niche reconstructions complete: ", capture.output(Sys.time() - time_check))
 
@@ -506,18 +509,18 @@ time_check <-  Sys.time()
 combine_varieties <- function(x, file_tail){
   if(file.exists(out("RECONS/All_",x$crop[[1]],"_",file_tail,".nc"))) return(NULL)
   n_crops <- length(x$crop)
-  foreach::foreach(cultivar = x$cultivar) %do% {
+  purrr::map(x$cultivar, function(cultivar){
     out("RECONS/",cultivar,"_",file_tail,".nc") %>%
       raster::brick() %>%
       raster::getValues()
-  } %>%
+  }) %>%
     Reduce(f = "+", x = .) %>%
     magrittr::divide_by(n_crops) %>%
     round() %>%
     raster::setValues(raster::brick(out("RECONS/",x$cultivar[[1]],"_",file_tail,".nc")), .) %>%
     raster::writeRaster(out("RECONS/All_",x$crop[[1]],"_",file_tail,".nc"),
                         format = "CDF",
-                        datatype = "INT1S",
+                        datatype = "INT2S",
                         varname = "niche_probability",
                         varunit = "unitless", 
                         longname = "Probability of being in the crop niche x 100",
@@ -531,27 +534,30 @@ combine_varieties <- function(x, file_tail){
 }
 
 # create the cluster for parallel computation
-cl <- makeCluster(min(opt$cores,
-                      crop_GDD %$%
-                        crop %>%
-                        unique() %>%
-                        length()),
-                  type = "PSOCK")
-registerDoParallel(cl)
-
-# Get mean niche for Marcott predictions
-foreach::foreach(crop = crop_GDD %>%
-                   split(as.factor(crop_GDD$crop)),
-                 .packages = c("magrittr",
-                               "foreach"),
-                 .combine = c) %dopar% {
-                   combine_varieties(crop, file_tail = "Z") # Get mean niche for Marcott
-                   combine_varieties(crop, file_tail = "Z_Upper") # Get mean niche for Marcott upper CI
-                   combine_varieties(crop, file_tail = "Z_Lower") # Get mean niche for Marcott lower CI
-                 }
+# cl <- makeCluster(min(opt$cores,
+#                       crop_GDD %$%
+#                         crop %>%
+#                         unique() %>%
+#                         length()),
+#                   type = "PSOCK")
+# registerDoParallel(cl)
+# 
+# # Get mean niche for Marcott predictions
+# foreach::foreach(crop = crop_GDD %>%
+#                    split(as.factor(crop_GDD$crop)),
+#                  .packages = c("magrittr",
+#                                "foreach"),
+#                  .combine = c) %dopar% {
+purrr::walk(crop_GDD %>%
+              split(as.factor(crop_GDD$crop)),
+            function(crop){
+              combine_varieties(crop, file_tail = "Z") # Get mean niche for Marcott
+              combine_varieties(crop, file_tail = "Z_Upper") # Get mean niche for Marcott upper CI
+              combine_varieties(crop, file_tail = "Z_Lower") # Get mean niche for Marcott lower CI
+            })
 
 # stop the cluster (will free memory)
-stopCluster(cl)
+# stopCluster(cl)
 
 message("Combining like crop niches complete: ", capture.output(Sys.time() - time_check))
 
