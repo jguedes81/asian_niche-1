@@ -144,7 +144,7 @@ Crow Canyon Archaeological Center<br>
 [bocinsky@gmail.com](mailto:bocinsky@gmail.com) – Email<br>
 [bocinsky.io](http://www.bocinsky.io/) – Web
 
-### R package citation
+### R package citations
 The following R packages were used for this analysis:
 ```{r, echo = FALSE, message = FALSE}
 library("knitcitations")
