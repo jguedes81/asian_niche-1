@@ -68,23 +68,20 @@ Once you have access, you should be able to download the `DALPOIMGUEDES_BOCINSKY
 We have included a Dockerfile which builds a Docker container for running the analyses described in the paper. It uses [`rocker/geospatial:3.3.3`](https://hub.docker.com/r/rocker/geospatial/), which provides R, [RStudio Server](https://www.rstudio.com/products/rstudio/download-server/), the [tidyverse](http://tidyverse.org/) of R packages as its base image and adds several geospatial software packages ([GDAL](http://www.gdal.org/), [GEOS](https://trac.osgeo.org/geos/), and [proj.4](http://proj4.org/). The Dockerimage (1) adds ffmpeg, (2) updates the R packages to the [2017-05-15 MRAN snapshot](https://mran.microsoft.com/timemachine/), and (3) installs the R software packages required by the script (based on the same MRAN snapshot).
 
 #### Downloading and running the Docker container image
-The commands below demonstrate three ways to run the docker container. In each, we use the `-v` argument to mount the local `asian_niche` directory (cloned from GitHub above, or dowloaded from Zenodo) to the running container; we use the `-w` argument to set the working directory to `/asian_niche`; and we use the `--rm` argument to dispose of containers upon exiting. See this [Docker cheat sheet](https://github.com/wsargent/docker-cheat-sheet) for other arguments.
+The commands below demonstrate three ways to run the docker container. In each, we use the `-w` argument to set the working directory to `/asian_niche`. See this [Docker cheat sheet](https://github.com/wsargent/docker-cheat-sheet) for other arguments. Using the ":1.0.0" tag will ensure you are running the version of the code that generates the d'Alpoim Guedes and Bocinsky (2017) results---the first time you run the Docker image, it will download it from the Docker Hub.
 
-First, set an environment variable to the absolute path of where you cloned this repository, such as:
-```bash
-export WKDIR=/Users/bocinsky/git/asian_niche/
-```
+*Be sure to copy the archaeological site data into the `asian_niche/DATA/` directory prior to running!* You can do so by adding the archaeological site data to your local `asian_niche/DATA/` directory, commenting the `DALPOIMGUEDES_BOCINSKY_2017.xlsx` entry in the `.dockerignore` file, and rebuilding the docker image using the command below.
 
 ##### Run the analysis directly
 To run the analyses directly, call the `asian_niche.R` script at the end of the run command:
 ```bash
-docker run --rm -v $WKDIR:/asian_niche -w /asian_niche bocinsky/asian_niche:1.0.0 Rscript asian_niche.R
+docker run -w /asian_niche bocinsky/asian_niche:1.0.0 Rscript asian_niche.R
 ```
 
 ##### Run the analysis interactively from the terminal
 Alternatively, you can run the container in interactive mode and load the script yourself:
 ```bash
-docker run --rm -v $WKDIR:/asian_niche -w /asian_niche -it bocinsky/asian_niche:1.0.0 bash
+docker run -w /asian_niche -it bocinsky/asian_niche:1.0.0 bash
 ```
 The `asian_niche.R` script has been designed to be run from the terminal using Python-style argument parsing---see an example in the `asian_niche.srun` file. To run, simply enter `Rscript --vanilla asian_niche.R` at the shell prompt. Passing the `--vanilla` option runs the script in a "fresh" R environment. Run `Rscript asian_niche.R --help` to see all available options.
 
@@ -93,17 +90,24 @@ You can use the `exit` command to stop the container.
 ##### Run the analysis from within a Dockerized RStudio IDE
 Finally, you can host RStudio Server locally to use the RStudio browser-based IDE. Run:
 ```bash
-docker run --rm -v $WKDIR:/home/rstudio/asian_niche -p 8787:8787 bocinsky/asian_niche:1.0.0
+docker run -p 8787:8787 bocinsky/asian_niche:1.0.0
 ```
 Then, open a browser (we find [Chrome](https://www.google.com/chrome/) works best) and navigate to "localhost:8787" or or run `docker-machine ip default` in the shell to find the correct IP address, and log in with **rstudio**/**rstudio** as the user name and password. In the explorer (lower right pane in RStudio), navigate to the `asian_niche` directory, and click the `asian_niche.Rproj` to open the project.
 
-#### Building the Docker container
+#### Building the Docker container from scratch
 If you wish to build the Docker container locally for this project from scratch, simply `cd` into the `asian_niche/` directory and run:
 
 ```bash
-docker build -t bocinsky/asian_niche:1.0.0 .
+docker build -t bocinsky/asian_niche .
 ```
 The `-t` argument gives the resulting container image a name. You can then run the container as described above.
+
+### Running everything using the `asian_niche.sh` script
+Alternatively, you can run the `asian_niche.sh` script, which builds the Docker container, runs the analysis, archives the output and Docker image for Zenodo archiving, and outputs all of the supplemental information included in the d'Alpoim Guedes and Bocinsky (2017) paper. Do so using bash:
+
+```bash
+bash asian_niche.sh
+```
 
 ### Output
 The GitHub repository for this project does not contain the output generated by the script---`r "OUTPUT" %>% list.files(all.files = TRUE, recursive = TRUE, full.names = TRUE) %>% file.size() %>% sum() %>% magrittr::divide_by(1000000000) %>% round(digits = 2)` GB. All output data is available as a separate Zenodo archive at
@@ -113,6 +117,7 @@ The GitHub repository for this project does not contain the output generated by 
 The `OUTPUT/` directory contains all data generated by the `asian_niche.R` script:
 
 - `session_info.txt` describes the computational infrastructure within which the script was run
+- `packages.bib` is a BibTeX bibliography file including all packages loaded in the `asian_niche.R` script
 - `DATA/` contains data downloaded from web sources for this analysis   
 - `MODELS/` contains R data objects describing the Kriging interpolation models across the study area
 - `RECONS/` contains NetCDF format raster bricks of the model output (i.e., the reconstructed crop niches)
@@ -122,7 +127,8 @@ The `OUTPUT/` directory contains all data generated by the `asian_niche.R` scrip
 
 ### Licenses
 
-Code: [MIT](http://opensource.org/licenses/MIT) year: `r format(Sys.Date(), "%Y")`, copyright holder: R. Kyle Bocinsky and Jade d'Alpoim Guedes
+Code: [MIT](http://opensource.org/licenses/MIT) year: `r format(Sys.Date(), "%Y")`<br>
+Copyright holders: R. Kyle Bocinsky and Jade d'Alpoim Guedes
 
 ### Contact
 

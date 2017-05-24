@@ -1,1 +1,15 @@
-**
+.git
+**/.git
+.cache
+**/. cache
+.DS_Store
+**/.DS_Store
+.Rhistory
+.Rproj.user
+.gitattributes
+.gitignore
+OUTPUT
+Zenodo
+Nature
+*.tar.gz
+**/DALPOIMGUEDES_BOCINSKY_2017.xlsx

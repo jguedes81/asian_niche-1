@@ -67,3 +67,6 @@ RUN install2.r -r 'https://mran.microsoft.com/snapshot/2017-05-15' --error \
     
 ## Update ggplot2 to development version (need 2.2.1.9000 for geom_sf function)
 RUN r -e 'devtools::install_github("tidyverse/ggplot2")'
+
+## Add the build context to the root
+ADD . /asian_niche/
