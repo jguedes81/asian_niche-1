@@ -6,11 +6,11 @@ Research compendium for d'Alpoim Guedes and Bocinsky *in review*
 
 **When using the code included in this research compendium, please cite *all* of the following:**
 
-d'Alpoim Guedes, Jade and R. Kyle Bocinsky. Climate change stimulated agricultural innovation and exchange across Asia. Submitted to *Nature*.
+d'Alpoim Guedes, Jade and R. Kyle Bocinsky. Climate change stimulated agricultural innovation and exchange across Asia. In review.
 
-d'Alpoim Guedes, Jade and R. Kyle Bocinsky. Research compendium for: *Climate change stimulated agricultural innovation and exchange across Asia*, as submitted to *Nature*. Version 0.9.0. Zenodo. <http://doi.org/10.5281/zenodo.580822>
+d'Alpoim Guedes, Jade and R. Kyle Bocinsky. Research compendium for: *Climate change stimulated agricultural innovation and exchange across Asia*, in review. Version 0.9.0. Zenodo. <http://doi.org/10.5281/zenodo.580822>
 
-d'Alpoim Guedes, Jade and R. Kyle Bocinsky. Data output for: *Climate change stimulated agricultural innovation and exchange across Asia*, as submitted to *Nature*. Version 0.9.0. Zenodo. \[DOI URL HERE\]
+d'Alpoim Guedes, Jade and R. Kyle Bocinsky. Data output for: *Climate change stimulated agricultural innovation and exchange across Asia*, in review. Version 0.9.0. Zenodo. \[DOI URL HERE\]
 
 ### Compendium DOI:
 

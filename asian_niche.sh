@@ -39,19 +39,19 @@ rm -r Zenodo; mkdir Zenodo
 ## Create a compressed tar archive of the output
 tar -zcf ./Zenodo/asian_niche-$VERSION-OUTPUT.tar.gz OUTPUT
 
-## Make the Nature directory
-rm -r Nature; mkdir Nature
+## Make the Submission directory
+rm -r Submission; mkdir Submission
 
-## Copy and rename the figures, tables, and supplementary data sets for Nature
-cp ./OUTPUT/FIGURES/crop_map.pdf ./Nature/Figure_1.pdf
-cp ./OUTPUT/FIGURES/facet_niche.pdf ./Nature/Figure_2.pdf
-cp ./OUTPUT/FIGURES/All_crossplot.pdf ./Nature/Figure_3.pdf
-cp ./OUTPUT/FIGURES/All_crossplot.html ./Nature/Extended_Data_1.html
-cp ./OUTPUT/FIGURES/All_wheat.mov ./Nature/Supplementary_Video_1.mov
-cp ./OUTPUT/FIGURES/All_barley.mov ./Nature/Supplementary_Video_2.mov
-cp ./OUTPUT/FIGURES/All_broomcorn_millet.mov ./Nature/Supplementary_Video_3.mov
-cp ./OUTPUT/FIGURES/All_foxtail_millet.mov ./Nature/Supplementary_Video_4.mov
-cp ./OUTPUT/FIGURES/All_buckwheat.mov ./Nature/Supplementary_Video_5.mov
-cp ./DATA/crops.csv ./Nature/Supplementary_Table_1.csv
-cp ./OUTPUT/TABLES/sites_dates_raw.csv ./Nature/Supplementary_Table_2.csv
-cp ./OUTPUT/TABLES/age_niche_estimates.csv ./Nature/Supplementary_Table_3.csv
+## Copy and rename the figures, tables, and supplementary data sets for submission
+cp ./OUTPUT/FIGURES/crop_map.pdf ./Submission/Figure_1.pdf
+cp ./OUTPUT/FIGURES/facet_niche.pdf ./Submission/Figure_2.pdf
+cp ./OUTPUT/FIGURES/All_crossplot.pdf ./Submission/Figure_3.pdf
+cp ./OUTPUT/FIGURES/All_crossplot.html ./Submission/Extended_Data_1.html
+cp ./OUTPUT/FIGURES/All_wheat.mov ./Submission/Supplementary_Video_1.mov
+cp ./OUTPUT/FIGURES/All_barley.mov ./Submission/Supplementary_Video_2.mov
+cp ./OUTPUT/FIGURES/All_broomcorn_millet.mov ./Submission/Supplementary_Video_3.mov
+cp ./OUTPUT/FIGURES/All_foxtail_millet.mov ./Submission/Supplementary_Video_4.mov
+cp ./OUTPUT/FIGURES/All_buckwheat.mov ./Submission/Supplementary_Video_5.mov
+cp ./DATA/crops.csv ./Submission/Supplementary_Table_1.csv
+cp ./OUTPUT/TABLES/sites_dates_raw.csv ./Submission/Supplementary_Table_2.csv
+cp ./OUTPUT/TABLES/age_niche_estimates.csv ./Submission/Supplementary_Table_3.csv
