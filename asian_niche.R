@@ -729,6 +729,35 @@ chronometric_data %>%
   dplyr::arrange(Site, Period) %>%
   readr::write_csv(out("TABLES/sites_dates_raw.csv"))
 
+# Write some stats about the sites data used in this analysis
+write_lines(c("Sites data (after spatial and crop filtering)",
+              paste0("Number of entries: ",
+                     chronometric_data %>%
+                       nrow()),
+              paste0("Number of sites: ",
+                     chronometric_data %$%
+                       Site %>%
+                       unique() %>%
+                       length()),
+              paste0("Number of distinct occupations: ",
+                     chronometric_data %>%
+                       dplyr::select(Site,Period) %>%
+                       distinct() %>%
+                       nrow()),
+              paste0("Number of radiocarbon dates: ",
+                     chronometric_data %>%
+                       dplyr::filter(!is.na(`14C age BP`)) %>%
+                       nrow()),
+              paste0("Number of radiocarbon sites: ",
+                     chronometric_data %>%
+                       dplyr::filter(!is.na(`14C age BP`)) %$%
+                       Site %>%
+                       unique() %>%
+                       length())
+              ),
+            out("sites.txt"))
+
+
 # A function to calibrate either 14C dates (using BchronCalibrate), or
 # site age estimates (using a flat density estimation)
 calibrate_density <- function(x){
