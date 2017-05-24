@@ -1,32 +1,50 @@
 #!/bin/bash
-## RUN THIS FROM WITHIN THE `asian_niche` DIRECTORY
+## Set the version as an environment variable
+VERSION="0.1.0"
+ARCH_SITES="./DATA/DALPOIMGUEDES_BOCINSKY_2017.xlsx"
 
-## Build the Docker container
-docker build -t bocinsky/asian_niche .
+## Build the Docker image from the github repo
+docker build -t bocinsky/asian_niche https://github.com/bocinsky/asian_niche.git#$VERSION
+
+## Remove any previous containers
+docker rm asian_niche
+
+## Create the Docker container
+docker create -w /asian_niche --name asian_niche bocinsky/asian_niche
+
+## Start the Docker container
+docker start asian_niche
 
 ## Copy the archaeological site data to the Docker container
-docker cp ./asian_niche/DATA/DALPOIMGUEDES_BOCINSKY_2017.xlsx bocinsky/asian_niche:/asian_niche/DATA/DALPOIMGUEDES_BOCINSKY_2017.xlsx
+docker cp $ARCH_SITES asian_niche:/asian_niche/DATA/DALPOIMGUEDES_BOCINSKY_2017.xlsx
+
+## Download and copy pre-run output into the container
+
+docker cp ~/Desktop/OUTPUT asian_niche:/asian_niche/
 
 ## Run the analysis in the docker container
-docker run -w /asian_niche bocinsky/asian_niche Rscript asian_niche.R
+docker exec asian_niche Rscript asian_niche.R
 
 ## Copy the output from the container to the host
-docker cp bocinsky/asian_niche:/asian_niche/OUTPUT ./OUTPUT
+docker cp asian_niche:/asian_niche/OUTPUT ./
 
 ## Remove the archaeological site data from the Docker container
-docker run -w /asian_niche bocinsky/asian_niche rm ./DATA/DALPOIMGUEDES_BOCINSKY_2017.xlsx
+docker exec asian_niche rm ./DATA/DALPOIMGUEDES_BOCINSKY_2017.xlsx
+
+## Stop the Docker container
+docker stop asian_niche
 
 ## Make a Zenodo directory
-mkdir Zenodo
+rm -r Zenodo; mkdir Zenodo
 
 ## Create a compressed tar archive of the output
-tar -zcf asian_niche_1.0.0_OUTPUT.tar.gz OUTPUT
+tar -zcf ./Zenodo/asian_niche-$VERSION-OUTPUT.tar.gz OUTPUT
 
-## Create a compressed tar archive of the Docker container
-docker save bocinsky/asian_niche | gzip > asian_niche_1.0.0_DOCKER.tar.gz
+## Create a compressed tar archive of the Docker container's file system
+# docker export asian_niche | gzip > ./Zenodo/asian_niche-$VERSION-DOCKER.tar.gz
 
 ## Make the Nature directory
-mkdir Nature
+rm -r Nature; mkdir Nature
 
 ## Copy and rename the figures, tables, and supplementary data sets for Nature
 cp ./OUTPUT/FIGURES/crop_map.pdf ./Nature/Figure_1.pdf
