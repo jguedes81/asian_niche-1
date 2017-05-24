@@ -132,7 +132,7 @@ Code: [MIT](http://opensource.org/licenses/MIT) year: 2017<br> Copyright holders
 
 ### Contact
 
-Kyle Bocinsky<br> Research Associate<br> Crow Canyon Archaeological Center<br> 23390 Road K, Cortez, CO 81321<br> 970.564.4384 – Office<br> 770.362.6659 – Mobile<br> <bocinsky@gmail.com> – Email<br> [bocinsky.io](http://www.bocinsky.io/) – Web
+Kyle Bocinsky, PhD, RPA<br> Research Associate<br> Crow Canyon Archaeological Center<br> 23390 Road K, Cortez, CO 81321<br> 970.564.4384 – Office<br> 770.362.6659 – Mobile<br> <bocinsky@gmail.com> – Email<br> [bocinsky.io](http://www.bocinsky.io/) – Web
 
 ### R package citation
 
