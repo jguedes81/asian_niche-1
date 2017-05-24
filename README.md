@@ -24,7 +24,6 @@ This repository is a research compendium for d'Alpoim Guedes and Bocinsky (in re
 -   **`README.Rmd`**: An RMarkdown source file, and its knitted Markdown output `README.md`
 -   **`asian_niche.Rproj`**: An RStudio project configuration file for this study
 -   **`asian_niche.R`**: The R script that runs the entire analysis, and is designed to be called from the command prompt
--   **`asian_niche.srun`**: The configuration script for the [Slurm Workload Manager](https://slurm.schedmd.com/) that was used to run this analysis on the [Kamiak high performance computing cluster](https://hpc.wsu.edu/) at Washington State University
 -   **`asian_niche.sh`**: A Bash script for building the Docker container (see below), running `asian_niche.R`, and compressing the output for uploading to Zenodo
 -   **`Dockerfile`**: A text document that contains the instructions for building the Docker container
 -   **`LICENSE`**: A text file of the MIT license for this repository and the code within it
