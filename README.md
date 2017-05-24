@@ -4,7 +4,13 @@
 Research compendium for d'Alpoim Guedes and Bocinsky *in review*
 ----------------------------------------------------------------
 
+**When using the code included in this research compendium, please cite *all* of the following:**
+
 d'Alpoim Guedes, Jade and R. Kyle Bocinsky. Climate change stimulated agricultural innovation and exchange across Asia. Submitted to *Nature*.
+
+d'Alpoim Guedes, Jade and R. Kyle Bocinsky. Research compendium for: *Climate change stimulated agricultural innovation and exchange across Asia*, as submitted to *Nature*. Version 0.9.0. Zenodo. <http://doi.org/10.5281/zenodo.580822>
+
+d'Alpoim Guedes, Jade and R. Kyle Bocinsky. Data output for: *Climate change stimulated agricultural innovation and exchange across Asia*, as submitted to *Nature*. Version 0.9.0. Zenodo. \[DOI URL HERE\]
 
 ### Compendium DOI:
 
@@ -32,15 +38,17 @@ This repository is a research compendium for d'Alpoim Guedes and Bocinsky (in re
 
 ### The research compendium
 
-To download this research compendium as you see it on GitHub, for offline browsing, [install git on your computer](https://git-scm.com/) and use this line at the shell prompt:
+To download this research compendium as you see it on GitHub, for offline browsing, [install git on your computer](https://git-scm.com/) and use this line at a Bash prompt ("Terminal" on macOS and Unix-alikes, "Command Prompt" on Windows):
 
 ``` bash
 git clone https://github.com/bocinsky/asian_niche.git
 ```
 
+**All commands described in this research compendium are meant to be run from a Bash prompt.**
+
 ### Archaeological site data
 
-Archaeological site location data are sensitive information due to the possibility of looting, and archaeological ethics require that we restrict access to those data. Accordingly, an essential component of this analysis is **not** shipped in this open GitHub repository or archived with Zenodo. We have instead archived the site location data necessary to run this analysis with the [Digital Archaeological Record (tDAR)](https://www.tdar.org/) under restricted access. Users who want to run this analysis need to request access through tDAR, which we will provide to any researcher with a reasonable affiliation (academic or otherwise). The main purpose is to track to whom we provide access to these data. Please [contact the authors](mailto:bocinsky@gmail.com,jadeguedes@gmail.com) if you wish to share these data or use them in your research.
+Archaeological site location data are sensitive information due to the possibility of looting, and archaeological ethics require that we restrict access to those data. Accordingly, an essential component of this analysis is **not** shipped in this open GitHub repository or archived with Zenodo. We have instead archived the site location data necessary to run this analysis with the [Digital Archaeological Record (tDAR)](https://www.tdar.org/) under restricted access. Users who want to run this analysis need to request access through tDAR, which we will provide to any researcher with a reasonable affiliation (academic or otherwise). The main purpose is to track to whom we provide access. Please [contact the authors](mailto:bocinsky@gmail.com,jadeguedes@gmail.com) if you wish to use these data in your research or share them with others.
 
 The data are available through tDAR at the following DOI: [10.6067/XCV8MK6G05](https://doi.org/10.6067/XCV8MK6G05). Please go to the site and select "Request Access, Submit Correction, Comment" under the downloads section in the right panel. You will have to [create a tDAR user account](https://core.tdar.org/account/new) and agree to the [tDAR user agreement](https://www.tdar.org/about/policies/terms-of-use/).
 
@@ -74,7 +82,7 @@ Alternatively, you can run the container in interactive mode and load the script
 docker run -w /asian_niche -it bocinsky/asian_niche:0.9.0 bash
 ```
 
-The `asian_niche.R` script has been designed to be run from the terminal using Python-style argument parsing. To run, simply enter `Rscript --vanilla asian_niche.R` at the shell prompt. Passing the `--vanilla` option runs the script in a "fresh" R environment. Run `Rscript asian_niche.R --help` to see all available options.
+The `asian_niche.R` script has been designed to be run from the shell using Python-style argument parsing. To run, simply enter `Rscript --vanilla asian_niche.R` at the shell prompt. Passing the `--vanilla` option runs the script in a "fresh" R environment. Run `Rscript asian_niche.R --help` to see all available options.
 
 You can use the `exit` command to stop the container.
 
@@ -111,7 +119,8 @@ bash asian_niche.sh
 ```
 
 ### A note on run time
-This analysis has been designed to take advantage of modern multi-core or multi-CPU computer architectures. By default, it will run on two cores—i.e., sections of the code will run in parallel approximately twice as fast as on a single core. The analysis also consumes quite a bit of memory. On two (relatively high-speed) cores, run-time of the entire analysis is **approximately 12 hours**. This can be sortened dramatically by running with a higher number of cores/processors and amount of memory, if available.  During testing, we were able to run the entire analysis in under three hours using a 20 core cluster.
+
+This analysis has been designed to take advantage of modern multi-core or multi-CPU computer architectures. By default, it will run on two cores—i.e., sections of the code will run in parallel approximately twice as fast as on a single core. The analysis also consumes quite a bit of memory. On two (relatively high-speed) cores, run-time of the entire analysis is **approximately 12 hours**. This can be sortened dramatically by running with a higher number of cores/processors and amount of memory, if available. During testing, we were able to run the entire analysis in under three hours using a 20 core cluster.
 
 ### Output
 
