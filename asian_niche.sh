@@ -1,7 +1,7 @@
 #!/bin/bash
 ## Set the version as an environment variable
 VERSION="0.9.0"
-ARCH_SITES="~/Dropbox/asian_niche/DALPOIMGUEDES_BOCINSKY_2017.xlsx"
+ARCH_SITES="../../DALPOIMGUEDES_BOCINSKY_2017.xlsx"
 
 ## Build the Docker image from the github repo
 docker build -t bocinsky/asian_niche https://github.com/bocinsky/asian_niche.git#$VERSION
