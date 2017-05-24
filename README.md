@@ -1,5 +1,5 @@
 <!-- README.md is generated from README.Rmd. Please edit that file -->
-[![Last-changedate](https://img.shields.io/badge/last%20change-2017--05--23-brightgreen.svg)](https://github.com/bocinsky/asian_niche/commits/master) [![minimal R version](https://img.shields.io/badge/R%3E%3D-3.4.0-brightgreen.svg)](https://cran.r-project.org/) [![Licence](https://img.shields.io/github/license/mashape/apistatus.svg)](http://choosealicense.com/licenses/mit/) [![DOI](https://zenodo.org/badge/52899692.svg)](https://zenodo.org/badge/latestdoi/52899692)
+[![Last-changedate](https://img.shields.io/badge/last%20change-2017--05--24-brightgreen.svg)](https://github.com/bocinsky/asian_niche/commits/master) [![minimal R version](https://img.shields.io/badge/R%3E%3D-3.4.0-brightgreen.svg)](https://cran.r-project.org/) [![Licence](https://img.shields.io/github/license/mashape/apistatus.svg)](http://choosealicense.com/licenses/mit/) [![DOI](https://zenodo.org/badge/52899692.svg)](https://zenodo.org/badge/latestdoi/52899692)
 
 Research compendium for d'Alpoim Guedes and Bocinsky *in review*
 ----------------------------------------------------------------
@@ -55,16 +55,16 @@ We have included a Dockerfile which builds a Docker container for running the an
 
 #### Downloading and running the Docker container image
 
-The commands below demonstrate three ways to run the docker container. In each, we use the `-w` argument to set the working directory to `/asian_niche`. See this [Docker cheat sheet](https://github.com/wsargent/docker-cheat-sheet) for other arguments. Using the ":1.0.0" tag will ensure you are running the version of the code that generates the d'Alpoim Guedes and Bocinsky (2017) results---the first time you run the Docker image, it will download it from the Docker Hub.
+The commands below demonstrate three ways to run the docker container. In each, we use the `-w` argument to set the working directory to `/asian_niche`. See this [Docker cheat sheet](https://github.com/wsargent/docker-cheat-sheet) for other arguments. Using the ":0.9.0" tag will ensure you are running the version of the code that generates the d'Alpoim Guedes and Bocinsky (2017) results---the first time you run the Docker image, it will download it from the Docker Hub.
 
-*Be sure to copy the archaeological site data into the `asian_niche/DATA/` directory prior to running the `asian_niche.R` script!* One way you can do so by adding the archaeological site data to your local `asian_niche/DATA/` directory, commenting the `DALPOIMGUEDES_BOCINSKY_2017.xlsx` entry in the `.dockerignore` file, and rebuilding the docker image using the command below.
+**Be sure to copy the archaeological site data into the `asian_niche/DATA/` directory prior to running the `asian_niche.R` script!** One way you can do so by adding the archaeological site data to your local `asian_niche/DATA/` directory, commenting the `DALPOIMGUEDES_BOCINSKY_2017.xlsx` entry in the `.dockerignore` file, and rebuilding the docker image using the command below.
 
 ##### Run the analysis directly
 
 To run the analyses directly, call the `asian_niche.R` script at the end of the run command:
 
 ``` bash
-docker run -w /asian_niche bocinsky/asian_niche:1.0.0 Rscript asian_niche.R
+docker run -w /asian_niche bocinsky/asian_niche:0.9.0 Rscript asian_niche.R
 ```
 
 ##### Run the analysis interactively from the terminal
@@ -72,7 +72,7 @@ docker run -w /asian_niche bocinsky/asian_niche:1.0.0 Rscript asian_niche.R
 Alternatively, you can run the container in interactive mode and load the script yourself:
 
 ``` bash
-docker run -w /asian_niche -it bocinsky/asian_niche:1.0.0 bash
+docker run -w /asian_niche -it bocinsky/asian_niche:0.9.0 bash
 ```
 
 The `asian_niche.R` script has been designed to be run from the terminal using Python-style argument parsing. To run, simply enter `Rscript --vanilla asian_niche.R` at the shell prompt. Passing the `--vanilla` option runs the script in a "fresh" R environment. Run `Rscript asian_niche.R --help` to see all available options.
@@ -84,7 +84,7 @@ You can use the `exit` command to stop the container.
 Finally, you can host RStudio Server locally to use the RStudio browser-based IDE. Run:
 
 ``` bash
-docker run -p 8787:8787 bocinsky/asian_niche:1.0.0
+docker run -p 8787:8787 bocinsky/asian_niche:0.9.0
 ```
 
 Then, open a browser (we find [Chrome](https://www.google.com/chrome/) works best) and navigate to "localhost:8787" or or run `docker-machine ip default` in the shell to find the correct IP address, and log in with **rstudio**/**rstudio** as the user name and password. In the explorer (lower right pane in RStudio), navigate to the `asian_niche` directory, and click the `asian_niche.Rproj` to open the project.
@@ -101,7 +101,7 @@ The `-t` argument gives the resulting container image a name. You can then run t
 
 ### One script to rule them all
 
-Alternatively to everything above, you can run the *`asian_niche.sh`* script, which builds the Docker container, runs the analysis, exports the output for Zenodo archiving, and prepares all of the supplemental information included in the d'Alpoim Guedes and Bocinsky (2017) paper. *This is the master script we ran for d'Alpoim Guedes and Bocinsky (2017).*
+Alternatively to everything above, you can run the **`asian_niche.sh`** script, which builds the Docker container, runs the analysis, exports the output for Zenodo archiving, and prepares all of the supplemental information included in the d'Alpoim Guedes and Bocinsky (2017) paper. **This is the master script we ran for d'Alpoim Guedes and Bocinsky (2017).**
 
 Be sure to set the `ARCH_SITES` variable at the top of `asian_niche.sh` to point to the location of the archaeological site data on your local file system.
 
