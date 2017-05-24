@@ -1,6 +1,6 @@
 #!/bin/bash
 ## Set the version as an environment variable
-VERSION="0.1.0"
+VERSION="0.3.0"
 ARCH_SITES="./DATA/DALPOIMGUEDES_BOCINSKY_2017.xlsx"
 
 ## Build the Docker image from the github repo
