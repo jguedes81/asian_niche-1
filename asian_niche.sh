@@ -1,22 +1,22 @@
 #!/bin/bash
 ## Set the version as an environment variable
 VERSION="0.9.0"
-ARCH_SITES="../../DALPOIMGUEDES_BOCINSKY_2017.xlsx"
+#ARCH_SITES="../../DALPOIMGUEDES_BOCINSKY_2017.xlsx"
 
 ## Build the Docker image from the github repo
-docker build -t bocinsky/asian_niche https://github.com/bocinsky/asian_niche.git#$VERSION
+docker build -t jguedes81/asian_niche-1 https://github.com/jguedes81/asian_niche-1#$VERSION
 
 ## Remove any previous containers
 docker rm asian_niche
 
 ## Create the Docker container
-docker create -w /asian_niche --name asian_niche bocinsky/asian_niche
+docker create -w /asian_niche --name asian_niche jguedes/asian_niche
 
 ## Start the Docker container
 docker start asian_niche
 
 ## Copy the archaeological site data to the Docker container
-docker cp $ARCH_SITES asian_niche:/asian_niche/DATA/DALPOIMGUEDES_BOCINSKY_2017.xlsx
+##docker cp $ARCH_SITES asian_niche:/asian_niche/DATA/DALPOIMGUEDES_BOCINSKY_2017.xlsx
 
 ## Download and copy pre-run output into the container
 #docker cp ~/Desktop/OUTPUT asian_niche:/asian_niche/
