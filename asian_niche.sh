@@ -10,10 +10,10 @@ docker build -t jguedes81/asian_niche-1 https://github.com/jguedes81/asian_niche
 docker rm asian_niche
 
 ## Create the Docker container
-docker create -w /asian_niche --name asian_niche jguedes/asian_niche
+docker create -w /asian_niche --name asian_niche jguedes/asian_niche-1
 
 ## Start the Docker container
-docker start asian_niche
+docker start asian_niche-1
 
 ## Copy the archaeological site data to the Docker container
 ##docker cp $ARCH_SITES asian_niche:/asian_niche/DATA/DALPOIMGUEDES_BOCINSKY_2017.xlsx
