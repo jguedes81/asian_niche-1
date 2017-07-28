@@ -249,9 +249,7 @@ crop_GDD <- readr::read_csv("./DATA/crops.csv",
                             "broomcorn_millet",
                             "wheat",
                             "barley",
-                            "buckwheat",
-                            "rice_tropical_japonica",
-                            "rice_temperate_japonica"))
+                            "buckwheat"))
 
 # create the cluster for parallel computation
 cl <- makeCluster(opt$cores, type = "PSOCK")
