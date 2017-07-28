@@ -22,7 +22,7 @@ prepare_marcott <- function(calibration.years){
                                     col_types = "numeric")
   names(marcott2013) <- c("YearBP","Temperature","Uncertainty")
   message("Transforming temperature deviations to standard scores.")
-  marcott2013 <- marcott2013[(marcott2013$YearBP <= 11290)&(!is.na(marcott2013$Temperature)),]
+  marcott2013 <- marcott2013[(marcott2013$YearBP <= 6010)&(!is.na(marcott2013$Temperature)),]
   marcott2013$Z_Lower <- (marcott2013$Temperature-marcott2013$Uncertainty)/calib.sd
   marcott2013$Z <- marcott2013$Temperature/calib.sd
   marcott2013$Z_Upper <- (marcott2013$Temperature+marcott2013$Uncertainty)/calib.sd
