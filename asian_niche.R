@@ -97,7 +97,7 @@ crop_custom <- function(x, y) {
 
 #Define the study region
 ASIA_poly <-
-  extent(15,70,25,55) %>% ## THE REAL EURASIAN POLYGON
+  extent(66,72,37,43) %>% ## THE REAL EURASIAN POLYGON
   # extent(66,72,37,43) %>% ## FOR TESTING PURPOSES ONLY
   FedData::polygon_from_extent("+proj=longlat +ellps=GRS80")
 

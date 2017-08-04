@@ -308,7 +308,7 @@ space_time_video <- function(the_brick,
   
   movie.width <- 1600
   movie.height <- round(movie.width * (fig_height/fig_width))
-  
+  if(movie.height %% 2 !=0) movie.height <-movie.height+1
   #Create the video
   fps <- nlayers(the_brick)/length
   system(stringr::str_c("ffmpeg -r ",fps," -i ",out_dir,"/image%04d.png -s:v ",movie.width,"x",movie.height," -c:v libx264 -crf 30 -profile:v High -pix_fmt yuv420p ",out_file," -y"))
