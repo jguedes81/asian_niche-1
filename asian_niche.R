@@ -212,10 +212,9 @@ GHCN.data.final <- prepare_ghcn(region = ASIA_poly,
                                 force.redo = opt$clean)
 message("GHCN preparation complete: ", capture.output(Sys.time() - time_check))
 ## An example of plotting the GHCN data
-# climate_plotter(data = GHCN.data.final, station = "CHM00051334", element = "TMIN")
+#climate_plotter(data = GHCN.data.final, station = "CHM00051334", element = "TMIN")
 
 ##### END PREPARE THE GHCN DATA #####
-
 
 
 ##### PREPARE THE MARCOTT DATA #####
@@ -228,7 +227,7 @@ message("Marcott et al. 2013 data preparation complete: ", capture.output(Sys.ti
 
 ##### END PREPARE THE MARCOTT DATA #####
 
-
+#marcott2013 <- read.csv("/Users/jadedalpoimguedes/Documents/GitHub/asian_niche-1/OUTPUT/DATA/marcott2013/MARCOTT2013_Z.csv")
 
 ##### MODULATING CLIMATOLOGY BY MARCOTT SD #####
 
@@ -668,7 +667,7 @@ message("Plotting of cultivar niche reconstructions complete: ", capture.output(
 message("Beginning chronometric co-analysis")
 
 # Read in the site/chronometric data
-chronometric_data <- readxl::read_excel("DATA/DALPOIMGUEDES_BOCINSKY_2017.xlsx",
+chronometric_data <- readxl::read_excel("/Users/jadedalpoimguedes/Documents/GitHub/asian_niche-1/DATA/DALPOIMGUEDES_BOCINSKY_2017.xlsx"),
                                         sheet = "chronometric_data",
                                         col_types = c("text",
                                                       "numeric",
