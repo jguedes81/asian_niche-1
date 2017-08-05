@@ -97,7 +97,7 @@ crop_custom <- function(x, y) {
 
 #Define the study region
 ASIA_poly <-
-  extent(66,72,37,43) %>% ## THE REAL EURASIAN POLYGON
+  extent(95,150,10,50) %>% ## THE REAL EURASIAN POLYGON
   # extent(66,72,37,43) %>% ## FOR TESTING PURPOSES ONLY
   FedData::polygon_from_extent("+proj=longlat +ellps=GRS80")
 
@@ -252,7 +252,9 @@ crop_GDD <- readr::read_csv("./DATA/crops.csv",
                             "broomcorn_millet",
                             "wheat",
                             "barley",
-                            "buckwheat"))
+                            "buckwheat",
+                            "rice_temperate_japonica",
+                            "rice_tropical_japonica"))
 
 # create the cluster for parallel computation
 cl <- makeCluster(opt$cores, type = "PSOCK")
